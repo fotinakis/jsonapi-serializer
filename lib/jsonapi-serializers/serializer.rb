@@ -30,7 +30,7 @@ module JSONAPI
         @context = options[:context] || {}
 
         # Internal serializer options, not exposed through attr_accessor. No touchie.
-        @_include_linkages = options[:include_linkages] || []
+        @_include_data = options[:include_data] || []
       end
 
       # Override this to customize the JSON:API "id" for this object.
@@ -87,19 +87,21 @@ module JSONAPI
         has_one_relationships.each do |attribute_name, object|
           formatted_attribute_name = format_name(attribute_name)
           data[formatted_attribute_name] = {
-            'self' => relationship_self_link(attribute_name),
-            'related' => relationship_related_link(attribute_name),
+            'links' => {
+              'self' => relationship_self_link(attribute_name),
+              'related' => relationship_related_link(attribute_name)
+            }
           }
-          if @_include_linkages.include?(formatted_attribute_name)
+          if @_include_data.include?(formatted_attribute_name)
             if object.nil?
-              # Spec: Resource linkage MUST be represented as one of the following:
+              # Spec: Resource data MUST be represented as one of the following:
               # - null for empty to-one relationships.
               # http://jsonapi.org/format/#document-structure-resource-relationships
-              data[formatted_attribute_name].merge!({'linkage' => nil})
+              data[formatted_attribute_name].merge!({'data' => nil})
             else
               related_object_serializer = JSONAPI::Serializer.find_serializer(object)
               data[formatted_attribute_name].merge!({
-                'linkage' => {
+                'data' => {
                   'type' => related_object_serializer.type.to_s,
                   'id' => related_object_serializer.id.to_s,
                 },
@@ -112,19 +114,21 @@ module JSONAPI
         has_many_relationships.each do |attribute_name, objects|
           formatted_attribute_name = format_name(attribute_name)
           data[formatted_attribute_name] = {
-            'self' => relationship_self_link(attribute_name),
-            'related' => relationship_related_link(attribute_name),
+            'links' => {
+              'self' => relationship_self_link(attribute_name),
+              'related' => relationship_related_link(attribute_name)
+            }
           }
-          # Spec: Resource linkage MUST be represented as one of the following:
+          # Spec: Resource data MUST be represented as one of the following:
           # - an empty array ([]) for empty to-many relationships.
-          # - an array of linkage objects for non-empty to-many relationships.
+          # - an array of data objects for non-empty to-many relationships.
           # http://jsonapi.org/format/#document-structure-resource-relationships
-          if @_include_linkages.include?(formatted_attribute_name)
-            data[formatted_attribute_name].merge!({'linkage' => []})
+          if @_include_data.include?(formatted_attribute_name)
+            data[formatted_attribute_name].merge!({'data' => []})
             objects = objects || []
             objects.each do |obj|
               related_object_serializer = JSONAPI::Serializer.find_serializer(obj)
-              data[formatted_attribute_name]['linkage'] << {
+              data[formatted_attribute_name]['data'] << {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,
               }
@@ -221,10 +225,10 @@ module JSONAPI
           'Attempted to serialize a single object as a collection.')
       end
 
-      # Automatically include linkage data for any relation that is also included.
+      # Automatically include data for any relation that is also included.
       if includes
         direct_children_includes = includes.reject { |key| key.include?('.') }
-        passthrough_options[:include_linkages] = direct_children_includes
+        passthrough_options[:include_data] = direct_children_includes
       end
 
       # Spec: Primary data MUST be either:
@@ -272,7 +276,7 @@ module JSONAPI
         result['included'] = relationship_data.map do |_, data|
           passthrough_options = {}
           passthrough_options[:serializer] = find_serializer_class(data[:object])
-          passthrough_options[:include_linkages] = data[:include_linkages]
+          passthrough_options[:include_data] = data[:include_data]
           serialize_primary(data[:object], passthrough_options)
         end
       end
@@ -317,9 +321,9 @@ module JSONAPI
     # Recursively find object relationships and returns a tree of related objects.
     # Example return:
     # {
-    #   ['comments', '1'] => {object: <Comment>, include_linkages: ['author']},
-    #   ['users', '1'] => {object: <User>, include_linkages: []},
-    #   ['users', '2'] => {object: <User>, include_linkages: []},
+    #   ['comments', '1'] => {object: <Comment>, include_data: ['author']},
+    #   ['users', '1'] => {object: <User>, include_data: []},
+    #   ['users', '2'] => {object: <User>, include_data: []},
     # }
     def self.find_recursive_relationships(root_object, root_inclusion_tree, results)
       root_inclusion_tree.each do |attribute_name, child_inclusion_tree|
@@ -369,10 +373,10 @@ module JSONAPI
             key = [obj_serializer.type, obj_serializer.id]
 
             # This is special: we know at this level if a child of this parent will also been
-            # included in the compound document, so we can compute exactly what linkages should
+            # included in the compound document, so we can compute exactly what data should
             # be included by the object at this level. This satisfies this part of the spec:
             #
-            # Spec: Resource linkage in a compound document allows a client to link together
+            # Spec: Resource data in a compound document allows a client to link together
             # all of the included resource objects without having to GET any relationship URLs.
             # http://jsonapi.org/format/#document-structure-resource-relationships
             current_child_includes = []
@@ -384,10 +388,10 @@ module JSONAPI
             end
 
             # Special merge: we might see this object multiple times in the course of recursion,
-            # so merge the include_linkages each time we see it to load all the relevant linkages.
-            current_child_includes += results[key] && results[key][:include_linkages] || []
+            # so merge the include_data each time we see it to load all the relevant data.
+            current_child_includes += results[key] && results[key][:include_data] || []
             current_child_includes.uniq!
-            results[key] = {object: obj, include_linkages: current_child_includes}
+            results[key] = {object: obj, include_data: current_child_includes}
           end
         end
 

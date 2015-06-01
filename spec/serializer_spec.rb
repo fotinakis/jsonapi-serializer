@@ -42,12 +42,16 @@ describe JSONAPI::Serializer do
         },
         'relationships' => {
           'user' => {
-            'self' => '/long-comments/1/links/user',
-            'related' => '/long-comments/1/user',
+            'links' => {
+              'self' => '/long-comments/1/links/user',
+              'related' => '/long-comments/1/user'
+            }
           },
           'post' => {
-            'self' => '/long-comments/1/links/post',
-            'related' => '/long-comments/1/post',
+            'links' => {
+              'self' => '/long-comments/1/links/post',
+              'related' => '/long-comments/1/post',
+            }
           },
         },
       })
@@ -74,7 +78,7 @@ describe JSONAPI::Serializer do
         },
       })
     end
-    context 'without any linkage includes (default)' do
+    context 'without any data includes (default)' do
       it 'can serialize primary data for an object with to-one and to-many relationships' do
         post = create(:post)
         primary_data = serialize_primary(post, {serializer: MyApp::PostSerializer})
@@ -89,25 +93,30 @@ describe JSONAPI::Serializer do
             'self' => '/posts/1',
           },
           'relationships' => {
-            # Both to-one and to-many links are present, but neither include linkage:
+            # Both to-one and to-many links are present, but neither include
+            # data:
             'author' => {
-              'self' => '/posts/1/links/author',
-              'related' => '/posts/1/author',
+              'links' => {
+                'self' => '/posts/1/links/author',
+                'related' => '/posts/1/author'
+              }
             },
             'long-comments' => {
-              'self' => '/posts/1/links/long-comments',
-              'related' => '/posts/1/long-comments',
+              'links' => {
+                'self' => '/posts/1/links/long-comments',
+                'related' => '/posts/1/long-comments'
+              }
             },
           },
         })
       end
     end
-    context 'with linkage includes' do
+    context 'with data includes' do
       it 'can serialize primary data for a null to-one relationship' do
         post = create(:post, author: nil)
         options = {
           serializer: MyApp::PostSerializer,
-          include_linkages: ['author', 'long-comments'],
+          include_data: ['author', 'long-comments'],
         }
         primary_data = serialize_primary(post, options)
         expect(primary_data).to eq({
@@ -122,17 +131,21 @@ describe JSONAPI::Serializer do
           },
           'relationships' => {
             'author' => {
-              'self' => '/posts/1/links/author',
-              'related' => '/posts/1/author',
-              # Spec: Resource linkage MUST be represented as one of the following:
+              'links' => {
+                'self' => '/posts/1/links/author',
+                'related' => '/posts/1/author',
+              },
+              # Spec: Resource data MUST be represented as one of the following:
               # - null for empty to-one relationships.
               # http://jsonapi.org/format/#document-structure-resource-relationships
-              'linkage' => nil,
+              'data' => nil,
             },
             'long-comments' => {
-              'self' => '/posts/1/links/long-comments',
-              'related' => '/posts/1/long-comments',
-              'linkage' => [],
+              'links' => {
+                'self' => '/posts/1/links/long-comments',
+                'related' => '/posts/1/long-comments'
+              },
+              'data' => [],
             },
           },
         })
@@ -141,7 +154,7 @@ describe JSONAPI::Serializer do
         post = create(:post, :with_author)
         options = {
           serializer: MyApp::PostSerializer,
-          include_linkages: ['author', 'long-comments'],
+          include_data: ['author', 'long-comments'],
         }
         primary_data = serialize_primary(post, options)
         expect(primary_data).to eq({
@@ -156,20 +169,24 @@ describe JSONAPI::Serializer do
           },
           'relationships' => {
             'author' => {
-              'self' => '/posts/1/links/author',
-              'related' => '/posts/1/author',
-              # Spec: Resource linkage MUST be represented as one of the following:
-              # - a 'linkage object' (defined below) for non-empty to-one relationships.
+              'links' => {
+                'self' => '/posts/1/links/author',
+                'related' => '/posts/1/author'
+              },
+              # Spec: Resource data MUST be represented as one of the following:
+              # - a 'data object' (defined below) for non-empty to-one relationships.
               # http://jsonapi.org/format/#document-structure-resource-relationships
-              'linkage' => {
+              'data' => {
                 'type' => 'users',
                 'id' => '1',
               },
             },
             'long-comments' => {
-              'self' => '/posts/1/links/long-comments',
-              'related' => '/posts/1/long-comments',
-              'linkage' => [],
+              'links' => {
+                'self' => '/posts/1/links/long-comments',
+                'related' => '/posts/1/long-comments'
+              },
+              'data' => [],
             },
           },
         })
@@ -178,7 +195,7 @@ describe JSONAPI::Serializer do
         post = create(:post, long_comments: [])
         options = {
           serializer: MyApp::PostSerializer,
-          include_linkages: ['author', 'long-comments'],
+          include_data: ['author', 'long-comments'],
         }
         primary_data = serialize_primary(post, options)
         expect(primary_data).to eq({
@@ -193,17 +210,21 @@ describe JSONAPI::Serializer do
           },
           'relationships' => {
             'author' => {
-              'self' => '/posts/1/links/author',
-              'related' => '/posts/1/author',
-              'linkage' => nil,
+              'links' => {
+                'self' => '/posts/1/links/author',
+                'related' => '/posts/1/author'
+              },
+              'data' => nil,
             },
             'long-comments' => {
-              'self' => '/posts/1/links/long-comments',
-              'related' => '/posts/1/long-comments',
-              # Spec: Resource linkage MUST be represented as one of the following:
+              'links' => {
+                'self' => '/posts/1/links/long-comments',
+                'related' => '/posts/1/long-comments'
+              },
+              # Spec: Resource data MUST be represented as one of the following:
               # - an empty array ([]) for empty to-many relationships.
               # http://jsonapi.org/format/#document-structure-resource-relationships
-              'linkage' => [],
+              'data' => [],
             },
           },
         })
@@ -213,7 +234,7 @@ describe JSONAPI::Serializer do
         post = create(:post, long_comments: long_comments)
         options = {
           serializer: MyApp::PostSerializer,
-          include_linkages: ['author', 'long-comments'],
+          include_data: ['author', 'long-comments'],
         }
         primary_data = serialize_primary(post, options)
         expect(primary_data).to eq({
@@ -228,17 +249,21 @@ describe JSONAPI::Serializer do
           },
           'relationships' => {
             'author' => {
-              'self' => '/posts/1/links/author',
-              'related' => '/posts/1/author',
-              'linkage' => nil,
+              'links' => {
+                'self' => '/posts/1/links/author',
+                'related' => '/posts/1/author'
+              },
+              'data' => nil,
             },
             'long-comments' => {
-              'self' => '/posts/1/links/long-comments',
-              'related' => '/posts/1/long-comments',
-              # Spec: Resource linkage MUST be represented as one of the following:
-              # - an array of linkage objects for non-empty to-many relationships.
+              'links' => {
+                'self' => '/posts/1/links/long-comments',
+                'related' => '/posts/1/long-comments'
+              },
+              # Spec: Resource data MUST be represented as one of the following:
+              # - an array of data objects for non-empty to-many relationships.
               # http://jsonapi.org/format/#document-structure-resource-relationships
-              'linkage' => [
+              'data' => [
                 {
                   'type' => 'long-comments',
                   'id' => '1',
@@ -312,7 +337,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['author'],
+        include_data: ['author'],
       })
       expect(JSONAPI::Serializer.serialize(post, include: ['author'])).to eq({
         'data' => expected_primary_data,
@@ -324,7 +349,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['author'],
+        include_data: ['author'],
       })
       expect(JSONAPI::Serializer.serialize(post, include: ['author'])).to eq({
         'data' => expected_primary_data,
@@ -338,7 +363,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['long-comments'],
+        include_data: ['long-comments'],
       })
       expect(JSONAPI::Serializer.serialize(post, include: ['long-comments'])).to eq({
         'data' => expected_primary_data,
@@ -351,7 +376,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['long-comments'],
+        include_data: ['long-comments'],
       })
       expect(JSONAPI::Serializer.serialize(post, include: ['long-comments'])).to eq({
         'data' => expected_primary_data,
@@ -368,7 +393,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['long-comments'],
+        include_data: ['long-comments'],
       })
       expect(JSONAPI::Serializer.serialize(post, include: ['long-comments'])).to eq({
         'data' => expected_primary_data,
@@ -386,7 +411,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['long-comments'],
+        include_data: ['long-comments'],
       })
       expect(JSONAPI::Serializer.serialize(post, include: ['long-comments'])).to eq({
         'data' => expected_primary_data,
@@ -408,12 +433,12 @@ describe JSONAPI::Serializer do
       long_comments.each { |c| c.post = post }
 
       expected_data = {
-        # Note that in this case the primary data does not include linkage for 'long-comments',
-        # forcing clients to still have to request linkage from long-comments and post. This is an
+        # Note that in this case the primary data does not include data for 'long-comments',
+        # forcing clients to still have to request data from long-comments and post. This is an
         # odd but valid data state because the user requested to only include the leaf author node,
-        # and we only automatically expose direct children linkages if they match given includes.
+        # and we only automatically expose direct children data if they match given includes.
         #
-        # Spec: Resource linkage in a compound document allows a client to link together
+        # Spec: Resource data in a compound document allows a client to link together
         # all of the included resource objects without having to GET any relationship URLs.
         # http://jsonapi.org/format/#document-structure-resource-relationships
         #
@@ -445,7 +470,7 @@ describe JSONAPI::Serializer do
       long_comments.each { |c| c.post = post }
 
       expected_data = {
-        # Same note about primary data linkages as above.
+        # Same note about primary data data as above.
         'data' => serialize_primary(post, {serializer: MyApp::PostSerializer}),
         'included' => [
           serialize_primary(first_user, {serializer: MyApp::UserSerializer}),
@@ -460,21 +485,21 @@ describe JSONAPI::Serializer do
       expect(actual_data['included']).to eq(expected_data['included'])
       expect(actual_data).to eq(expected_data)
     end
-    it 'includes linkage in compounded resources only if the immediate parent was also included' do
+    it 'includes data in compounded resources only if the immediate parent was also included' do
       comment_user = create(:user)
       long_comments = [create(:long_comment, user: comment_user)]
       post = create(:post, :with_author, long_comments: long_comments)
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['long-comments'],
+        include_data: ['long-comments'],
       })
       expected_data = {
         'data' => expected_primary_data,
         'included' => [
           serialize_primary(long_comments.first, {
             serializer: MyApp::LongCommentSerializer,
-            include_linkages: ['user'],
+            include_data: ['user'],
           }),
           # Note: post.author does not show up here because it was not included.
           serialize_primary(comment_user, {serializer: MyApp::UserSerializer}),
@@ -497,7 +522,7 @@ describe JSONAPI::Serializer do
 
       expected_primary_data = serialize_primary(post, {
         serializer: MyApp::PostSerializer,
-        include_linkages: ['long-comments'],
+        include_data: ['long-comments'],
       })
       expected_data = {
         'data' => expected_primary_data,
@@ -524,7 +549,7 @@ describe JSONAPI::Serializer do
 
         expected_primary_data = JSONAPI::Serializer.send(:serialize_primary_multi, posts, {
           serializer: MyApp::PostSerializer,
-          include_linkages: ['long-comments'],
+          include_data: ['long-comments'],
         })
         data = JSONAPI::Serializer.serialize(posts, is_collection: true, include: ['long-comments'])
         expect(data).to eq({
