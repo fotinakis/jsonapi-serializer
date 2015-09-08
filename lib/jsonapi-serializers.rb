@@ -1,3 +1,4 @@
+require 'active_support/concern'
 require "jsonapi-serializers/version"
 require "jsonapi-serializers/attributes"
 require "jsonapi-serializers/serializer"
