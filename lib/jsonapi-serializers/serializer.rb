@@ -231,13 +231,12 @@ module JSONAPI
         if attr_or_block.is_a?(Proc)
           # A custom block was given, call it to get the value.
           instance_eval(&attr_or_block)
-        elsif false && options[:id_only]
+        elsif options[:id_only]
           id_attribute = options[:id_attribute] || :"#{attr_or_block}_id"
           if object.respond_to?(id_attribute)
             IdObject.new(object.public_send(id_attribute))
           else
-            # Fall back to default behavior, call a method by the name of the attribute.
-            object.send(attr_or_block)
+            nil
           end
         else
           # Default behavior, call a method by the name of the attribute.
