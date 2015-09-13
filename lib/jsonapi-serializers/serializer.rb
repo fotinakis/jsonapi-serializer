@@ -4,6 +4,8 @@ require 'active_support/core_ext/hash/keys'
 
 module JSONAPI
   module Serializer
+    IdObject = Struct.new(:id)
+
     def self.included(target)
       target.send(:include, InstanceMethods)
       target.extend ClassMethods
@@ -122,20 +124,18 @@ module JSONAPI
             data[formatted_attribute_name]['links']['self'] = links_self if links_self
             data[formatted_attribute_name]['links']['related'] = links_related if links_related
 
-            if direct_children_includes.include?(formatted_attribute_name)
-              if related_object_serializer.nil? or related_object_serializer.object.nil?
-                # Spec: Resource linkage MUST be represented as one of the following:
-                # - null for empty to-one relationships.
-                # http://jsonapi.org/format/#document-structure-resource-relationships
-                data[formatted_attribute_name].merge!({'data' => nil})
-              else
-                data[formatted_attribute_name].merge!({
-                  'data' => {
-                    'type' => related_object_serializer.type.to_s,
-                    'id' => related_object_serializer.id.to_s,
-                  },
-                })
-              end
+            if related_object_serializer.nil? or related_object_serializer.id.nil?
+              # Spec: Resource linkage MUST be represented as one of the following:
+              # - null for empty to-one relationships.
+              # http://jsonapi.org/format/#document-structure-resource-relationships
+              data[formatted_attribute_name].merge!({'data' => nil})
+            else
+              data[formatted_attribute_name].merge!({
+                'data' => {
+                  'type' => related_object_serializer.type.to_s,
+                  'id' => related_object_serializer.id.to_s,
+                },
+              })
             end
           end
 
@@ -174,7 +174,7 @@ module JSONAPI
         attributes = {}
         self.class.attributes_map.each do |attribute_name, attr_data|
           next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          value = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+          value = evaluate_attr_or_block(attr_data[:attr_or_block])
           attributes[format_name(attribute_name)] = value
         end
         attributes
@@ -186,10 +186,12 @@ module JSONAPI
           data = {}
           self.class.to_one_associations.each do |attribute_name, attr_data|
             next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-            value = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+            formatted_name = format_name(attribute_name)
+            id_only = !direct_children_includes.include?(formatted_name)
+            value = evaluate_attr_or_block(attr_data[:attr_or_block], id_only: id_only, id_attribute: attr_data[:options][:id_attribute])
             if value
               serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(value)
-              data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(format_name(attribute_name)))
+              data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(formatted_name))
             else
               data[attribute_name] = nil
             end
@@ -204,7 +206,7 @@ module JSONAPI
           data = {}
           self.class.to_many_associations.each do |attribute_name, attr_data|
             next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-            objects = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+            objects = evaluate_attr_or_block(attr_data[:attr_or_block])
             if objects and objects.any?
               serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(objects.first)
               data[attribute_name] = objects.map{|obj| serializer_class.new obj, include_linkages: include_linkages_for_child(format_name(attribute_name)) }
@@ -225,10 +227,18 @@ module JSONAPI
       end
       protected :should_include_attr?
 
-      def evaluate_attr_or_block(attribute_name, attr_or_block)
+      def evaluate_attr_or_block(attr_or_block, options = {})
         if attr_or_block.is_a?(Proc)
           # A custom block was given, call it to get the value.
           instance_eval(&attr_or_block)
+        elsif false && options[:id_only]
+          id_attribute = options[:id_attribute] || :"#{attr_or_block}_id"
+          if object.respond_to?(id_attribute)
+            IdObject.new(object.public_send(id_attribute))
+          else
+            # Fall back to default behavior, call a method by the name of the attribute.
+            object.send(attr_or_block)
+          end
         else
           # Default behavior, call a method by the name of the attribute.
           object.send(attr_or_block)
