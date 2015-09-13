@@ -1,9 +1,6 @@
 module JSONAPI
   module Attributes
-    def self.included(target)
-      target.send(:include, InstanceMethods)
-      target.extend ClassMethods
-    end
+    extend ActiveSupport::Concern
 
     module InstanceMethods
     end

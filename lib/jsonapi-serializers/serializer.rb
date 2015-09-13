@@ -1,5 +1,6 @@
 require 'set'
 require 'active_support/inflector'
+require 'active_support/core_ext/hash/keys'
 
 module JSONAPI
   module Serializer
@@ -33,6 +34,25 @@ module JSONAPI
 
         # Internal serializer options, not exposed through attr_accessor. No touchie.
         @_include_linkages = options[:include_linkages] || []
+      end
+
+      def include_linkages
+        @include_linkages ||= begin
+          if @_include_linkages.is_a?(String)
+            @_include_linkages.strip.split(/\s*,\s*/)
+          else
+            @_include_linkages.uniq
+          end
+        end
+      end
+
+      def direct_children_includes
+        @direct_children_includes ||= include_linkages.map{|link| link.sub(/\..*/, '') }.uniq
+      end
+
+      def include_linkages_for_child(child_name)
+          search_for = "#{child_name}."
+          include_linkages.select{|link| link.start_with? search_for }.map{|link| link[search_for.length..-1]}
       end
 
       # Override this to customize the JSON:API "id" for this object.
@@ -89,64 +109,64 @@ module JSONAPI
       end
 
       def relationships
-        data = {}
-        # Merge in data for has_one relationships.
-        has_one_relationships.each do |attribute_name, object|
-          formatted_attribute_name = format_name(attribute_name)
+        @relationships ||= begin
+          data = {}
+          # Merge in data for has_one relationships.
+          has_one_relationships.each do |attribute_name, related_object_serializer|
+            formatted_attribute_name = format_name(attribute_name)
 
-          data[formatted_attribute_name] = {}
-          links_self = relationship_self_link(attribute_name)
-          links_related = relationship_related_link(attribute_name)
-          data[formatted_attribute_name]['links'] = {} if links_self || links_related
-          data[formatted_attribute_name]['links']['self'] = links_self if links_self
-          data[formatted_attribute_name]['links']['related'] = links_related if links_related
+            data[formatted_attribute_name] = {}
+            links_self = relationship_self_link(attribute_name)
+            links_related = relationship_related_link(attribute_name)
+            data[formatted_attribute_name]['links'] = {} if links_self || links_related
+            data[formatted_attribute_name]['links']['self'] = links_self if links_self
+            data[formatted_attribute_name]['links']['related'] = links_related if links_related
 
-          if @_include_linkages.include?(formatted_attribute_name)
-            if object.nil?
-              # Spec: Resource linkage MUST be represented as one of the following:
-              # - null for empty to-one relationships.
-              # http://jsonapi.org/format/#document-structure-resource-relationships
-              data[formatted_attribute_name].merge!({'data' => nil})
-            else
-              related_object_serializer = JSONAPI::Serializer.find_serializer(object)
-              data[formatted_attribute_name].merge!({
-                'data' => {
+            if direct_children_includes.include?(formatted_attribute_name)
+              if related_object_serializer.nil? or related_object_serializer.object.nil?
+                # Spec: Resource linkage MUST be represented as one of the following:
+                # - null for empty to-one relationships.
+                # http://jsonapi.org/format/#document-structure-resource-relationships
+                data[formatted_attribute_name].merge!({'data' => nil})
+              else
+                data[formatted_attribute_name].merge!({
+                  'data' => {
+                    'type' => related_object_serializer.type.to_s,
+                    'id' => related_object_serializer.id.to_s,
+                  },
+                })
+              end
+            end
+          end
+
+          # Merge in data for has_many relationships.
+          has_many_relationships.each do |attribute_name, serialized_objects|
+            formatted_attribute_name = format_name(attribute_name)
+
+            data[formatted_attribute_name] = {}
+            links_self = relationship_self_link(attribute_name)
+            links_related = relationship_related_link(attribute_name)
+            data[formatted_attribute_name]['links'] = {} if links_self || links_related
+            data[formatted_attribute_name]['links']['self'] = links_self if links_self
+            data[formatted_attribute_name]['links']['related'] = links_related if links_related
+
+            # Spec: Resource linkage MUST be represented as one of the following:
+            # - an empty array ([]) for empty to-many relationships.
+            # - an array of linkage objects for non-empty to-many relationships.
+            # http://jsonapi.org/format/#document-structure-resource-relationships
+            if direct_children_includes.include?(formatted_attribute_name)
+              data[formatted_attribute_name].merge!({'data' => []})
+              serialized_objects = serialized_objects || []
+              serialized_objects.each do |related_object_serializer|
+                data[formatted_attribute_name]['data'] << {
                   'type' => related_object_serializer.type.to_s,
                   'id' => related_object_serializer.id.to_s,
-                },
-              })
+                }
+              end
             end
           end
+          data
         end
-
-        # Merge in data for has_many relationships.
-        has_many_relationships.each do |attribute_name, objects|
-          formatted_attribute_name = format_name(attribute_name)
-
-          data[formatted_attribute_name] = {}
-          links_self = relationship_self_link(attribute_name)
-          links_related = relationship_related_link(attribute_name)
-          data[formatted_attribute_name]['links'] = {} if links_self || links_related
-          data[formatted_attribute_name]['links']['self'] = links_self if links_self
-          data[formatted_attribute_name]['links']['related'] = links_related if links_related
-
-          # Spec: Resource linkage MUST be represented as one of the following:
-          # - an empty array ([]) for empty to-many relationships.
-          # - an array of linkage objects for non-empty to-many relationships.
-          # http://jsonapi.org/format/#document-structure-resource-relationships
-          if @_include_linkages.include?(formatted_attribute_name)
-            data[formatted_attribute_name].merge!({'data' => []})
-            objects = objects || []
-            objects.each do |obj|
-              related_object_serializer = JSONAPI::Serializer.find_serializer(obj)
-              data[formatted_attribute_name]['data'] << {
-                'type' => related_object_serializer.type.to_s,
-                'id' => related_object_serializer.id.to_s,
-              }
-            end
-          end
-        end
-        data
       end
 
       def attributes
@@ -162,22 +182,38 @@ module JSONAPI
 
       def has_one_relationships
         return {} if self.class.to_one_associations.nil?
-        data = {}
-        self.class.to_one_associations.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          data[attribute_name] = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+        @has_one_relationships ||= begin
+          data = {}
+          self.class.to_one_associations.each do |attribute_name, attr_data|
+            next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
+            value = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+            if value
+              serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(value)
+              data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(format_name(attribute_name)))
+            else
+              data[attribute_name] = nil
+            end
+          end
+          data
         end
-        data
       end
 
       def has_many_relationships
         return {} if self.class.to_many_associations.nil?
-        data = {}
-        self.class.to_many_associations.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          data[attribute_name] = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+        @has_many_relationships ||= begin
+          data = {}
+          self.class.to_many_associations.each do |attribute_name, attr_data|
+            next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
+            objects = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+            if objects and objects.any?
+              serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(objects.first)
+              data[attribute_name] = objects.map{|obj| serializer_class.new obj, include_linkages: include_linkages_for_child(format_name(attribute_name)) }
+            else
+              data[attribute_name] = []
+            end
+          end
+          data
         end
-        data
       end
 
       def should_include_attr?(if_method_name, unless_method_name)
@@ -201,17 +237,14 @@ module JSONAPI
       protected :evaluate_attr_or_block
     end
 
-    def self.find_serializer_class_name(object)
-      "#{object.class.name}Serializer"
-    end
-
-    def self.find_serializer_class(object)
-      class_name = find_serializer_class_name(object)
+    def self.find_serializer_class(object, options = {})
+      return options[:serializer] if options[:serializer]
+      class_name = "#{object.class.name}Serializer"
       class_name.constantize
     end
 
-    def self.find_serializer(object)
-      find_serializer_class(object).new(object)
+    def self.find_serializer(object, options = {})
+      find_serializer_class(object, options).new(object)
     end
 
     def self.serialize(objects, options = {})
@@ -220,30 +253,25 @@ module JSONAPI
       options[:include] = options.delete('include') || options[:include]
       options[:serializer] = options.delete('serializer') || options[:serializer]
       options[:context] = options.delete('context') || options[:context] || {}
+      options[:meta] = options.delete('meta') || options[:meta]
       options[:skip_collection_check] = options.delete('skip_collection_check') || options[:skip_collection_check] || false
       options[:base_url] = options.delete('base_url') || options[:base_url]
 
       # Normalize includes.
       includes = options[:include]
-      includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq if includes
+      includes = (includes.is_a?(String) ? includes.strip.split(/\s*,\s*/) : includes).uniq if includes
 
       # An internal-only structure that is passed through serializers as they are created.
       passthrough_options = {
         context: options[:context],
         serializer: options[:serializer],
-        include: includes,
+        include_linkages: includes,
         base_url: options[:base_url]
       }
 
       if !options[:skip_collection_check] && options[:is_collection] && !objects.respond_to?(:each)
         raise JSONAPI::Serializer::AmbiguousCollectionError.new(
           'Attempted to serialize a single object as a collection.')
-      end
-
-      # Automatically include linkage data for any relation that is also included.
-      if includes
-        direct_children_includes = includes.reject { |key| key.include?('.') }
-        passthrough_options[:include_linkages] = direct_children_includes
       end
 
       # Spec: Primary data MUST be either:
@@ -256,8 +284,9 @@ module JSONAPI
         primary_data = nil
       elsif options[:is_collection]
         # Have object collection.
-        passthrough_options[:serializer] ||= find_serializer_class(objects.first)
-        primary_data = serialize_primary_multi(objects, passthrough_options)
+        passthrough_options[:serializer] ||= find_serializer_class(objects.first, options)
+        object_serializers = objects.map{|obj| passthrough_options[:serializer].new(obj, passthrough_options)}
+        primary_data = serialize_primary_multi(object_serializers, passthrough_options)
       else
         # Duck-typing check for a collection being passed without is_collection true.
         # We always must be told if serializing a collection because the JSON:API spec distinguishes
@@ -267,12 +296,14 @@ module JSONAPI
             'Must provide `is_collection: true` to `serialize` when serializing collections.')
         end
         # Have single object.
-        passthrough_options[:serializer] ||= find_serializer_class(objects)
-        primary_data = serialize_primary(objects, passthrough_options)
+        passthrough_options[:serializer] ||= find_serializer_class(objects, options)
+        object_serializer = passthrough_options[:serializer].new(objects, passthrough_options)
+        primary_data = serialize_primary(object_serializer, passthrough_options)
       end
       result = {
         'data' => primary_data,
       }
+      result['meta'] = options[:meta].deep_stringify_keys if options[:meta].is_a?(Hash)
 
       # If 'include' relationships are given, recursively find and include each object.
       if includes
@@ -281,17 +312,16 @@ module JSONAPI
 
         # Given all the primary objects (either the single root object or collection of objects),
         # recursively search and find related associations that were specified as includes.
-        objects = options[:is_collection] ? objects.to_a : [objects]
-        objects.compact.each do |obj|
+        serializers = options[:is_collection] ? object_serializers.to_a : [object_serializer]
+        serializers.compact.each do |obj_serializer|
           # Use the mutability of relationship_data as the return datastructure to take advantage
           # of the internal special merging logic.
-          find_recursive_relationships(obj, inclusion_tree, relationship_data)
+          find_recursive_relationships(obj_serializer, inclusion_tree, relationship_data)
         end
 
         result['included'] = relationship_data.map do |_, data|
           included_passthrough_options = {}
           included_passthrough_options[:base_url] = passthrough_options[:base_url]
-          included_passthrough_options[:serializer] = find_serializer_class(data[:object])
           included_passthrough_options[:include_linkages] = data[:include_linkages]
           serialize_primary(data[:object], included_passthrough_options)
         end
@@ -299,15 +329,15 @@ module JSONAPI
       result
     end
 
-    def self.serialize_primary(object, options = {})
-      serializer_class = options.fetch(:serializer)
+    def self.serialize_primary(serializer, options = {})
+      #serializer_class = options.fetch(:serializer)
 
       # Spec: Primary data MUST be either:
       # - a single resource object or null, for requests that target single resources.
       # http://jsonapi.org/format/#document-structure-top-level
-      return if object.nil?
+      return nil if serializer.nil? or serializer.object.nil?
 
-      serializer = serializer_class.new(object, options)
+      #serializer = serializer_class.new(object, options)
       data = {
         'id' => serializer.id.to_s,
         'type' => serializer.type.to_s,
@@ -324,13 +354,15 @@ module JSONAPI
     end
     class << self; protected :serialize_primary; end
 
-    def self.serialize_primary_multi(objects, options = {})
+    def self.serialize_primary_multi(serializers, options = {})
       # Spec: Primary data MUST be either:
       # - an array of resource objects or an empty array ([]), for resource collections.
       # http://jsonapi.org/format/#document-structure-top-level
-      return [] if !objects.any?
+      return [] unless serializers.any?
 
-      objects.map { |obj| serialize_primary(obj, options) }
+      serializers.map do |serializer|
+        serialize_primary(serializer, options)
+      end
     end
     class << self; protected :serialize_primary_multi; end
 
@@ -341,12 +373,11 @@ module JSONAPI
     #   ['users', '1'] => {object: <User>, include_linkages: []},
     #   ['users', '2'] => {object: <User>, include_linkages: []},
     # }
-    def self.find_recursive_relationships(root_object, root_inclusion_tree, results)
+    def self.find_recursive_relationships(serializer, root_inclusion_tree, results)
       root_inclusion_tree.each do |attribute_name, child_inclusion_tree|
         # Skip the sentinal value, but we need to preserve it for siblings.
         next if attribute_name == :_include
 
-        serializer = JSONAPI::Serializer.find_serializer(root_object)
         unformatted_attr_name = serializer.unformat_name(attribute_name).to_sym
 
         # We know the name of this relationship, but we don't know where it is stored internally.
@@ -380,8 +411,7 @@ module JSONAPI
           # Include the current level objects if the _include attribute exists.
           # If it is not set, that indicates that this is an inner path and not a leaf and will
           # be followed by the recursion below.
-          objects.each do |obj|
-            obj_serializer = JSONAPI::Serializer.find_serializer(obj)
+          objects.each do |obj_serializer|
             # Use keys of ['posts', '1'] for the results to enforce uniqueness.
             # Spec: A compound document MUST NOT include more than one resource object for each
             # type and id pair.
@@ -407,15 +437,15 @@ module JSONAPI
             # so merge the include_linkages each time we see it to load all the relevant linkages.
             current_child_includes += results[key] && results[key][:include_linkages] || []
             current_child_includes.uniq!
-            results[key] = {object: obj, include_linkages: current_child_includes}
+            results[key] = {object: obj_serializer, include_linkages: current_child_includes}
           end
         end
 
         # Recurse deeper!
         if !child_inclusion_tree.empty?
           # For each object we just loaded, find all deeper recursive relationships.
-          objects.each do |obj|
-            find_recursive_relationships(obj, child_inclusion_tree, results)
+          objects.each do |obj_serializer|
+            find_recursive_relationships(obj_serializer, child_inclusion_tree, results)
           end
         end
       end
