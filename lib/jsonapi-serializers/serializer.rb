@@ -158,7 +158,7 @@ module JSONAPI
             # - an empty array ([]) for empty to-many relationships.
             # - an array of linkage objects for non-empty to-many relationships.
             # http://jsonapi.org/format/#document-structure-resource-relationships
-            if direct_children_includes.include?(formatted_attribute_name)
+            if direct_children_includes.include?(attribute_name.to_s)
               data[formatted_attribute_name].merge!({'data' => []})
               serialized_objects = serialized_objects || []
               serialized_objects.each do |related_object_serializer|
@@ -190,12 +190,11 @@ module JSONAPI
           data = {}
           self.class.to_one_associations.each do |attribute_name, attr_data|
             next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-            formatted_name = format_name(attribute_name)
-            id_only = !direct_children_includes.include?(formatted_name)
+            id_only = !direct_children_includes.include?(attribute_name.to_s)
             value = evaluate_attr_or_block(attr_data[:attr_or_block], id_only: id_only, id_attribute: attr_data[:options][:id_attribute])
             if value
               serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(value)
-              data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(formatted_name))
+              data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(attribute_name))
             else
               data[attribute_name] = nil
             end
@@ -213,7 +212,7 @@ module JSONAPI
             objects = evaluate_attr_or_block(attr_data[:attr_or_block])
             if objects and objects.any?
               serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(objects.first)
-              data[attribute_name] = objects.map{|obj| serializer_class.new obj, include_linkages: include_linkages_for_child(format_name(attribute_name)) }
+              data[attribute_name] = objects.map{|obj| serializer_class.new obj, include_linkages: include_linkages_for_child(attribute_name) }
             else
               data[attribute_name] = []
             end
