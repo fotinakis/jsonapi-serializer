@@ -1,6 +1,6 @@
 require 'set'
-require 'active_support/inflector'
-require 'active_support/core_ext/hash/keys'
+#require 'active_support/inflector'
+require 'active_support/core_ext/string'
 
 module JSONAPI
   module Serializer
@@ -68,7 +68,11 @@ module JSONAPI
       # per the spec naming recommendations: http://jsonapi.org/recommendations/#naming
       # For example, 'MyApp::LongCommment' will become the 'long-comments' type.
       def type
-        object.class.name.demodulize.tableize.dasherize
+        if object.is_a?(IdObject)
+          self.class.name.demodulize.sub(/Serializer/i, '').underscore.pluralize.dasherize
+        else
+          object.class.name.demodulize.underscore.pluralize.dasherize
+        end
       end
 
       # Override this to customize how attribute names are formatted.
