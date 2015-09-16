@@ -1,6 +1,7 @@
 require 'factory_girl'
 require './lib/jsonapi-serializers'
 require './spec/support/serializers'
+require 'pry'
 
 RSpec.configure do |config|
   config.include FactoryGirl::Syntax::Methods

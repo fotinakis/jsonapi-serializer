@@ -1,5 +1,4 @@
 require 'set'
-#require 'active_support/inflector'
 require 'active_support/core_ext/string'
 
 module JSONAPI
@@ -261,13 +260,13 @@ module JSONAPI
 
     def self.serialize(objects, options = {})
       # Normalize option strings to symbols.
-      options[:is_collection] = options.delete('is_collection') || options[:is_collection] || false
-      options[:include] = options.delete('include') || options[:include]
-      options[:serializer] = options.delete('serializer') || options[:serializer]
-      options[:context] = options.delete('context') || options[:context] || {}
-      options[:meta] = options.delete('meta') || options[:meta]
-      options[:skip_collection_check] = options.delete('skip_collection_check') || options[:skip_collection_check] || false
-      options[:base_url] = options.delete('base_url') || options[:base_url]
+      options[:is_collection] = options[:is_collection] || false
+      options[:include] = options[:include]
+      options[:serializer] = options[:serializer]
+      options[:context] = options[:context] || {}
+      options[:meta] = options[:meta]
+      options[:skip_collection_check] = options[:skip_collection_check] || false
+      options[:base_url] = options[:base_url]
 
       # Normalize includes.
       includes = options[:include]
@@ -276,7 +275,6 @@ module JSONAPI
       # An internal-only structure that is passed through serializers as they are created.
       passthrough_options = {
         context: options[:context],
-        serializer: options[:serializer],
         include_linkages: includes,
         base_url: options[:base_url]
       }
@@ -296,8 +294,8 @@ module JSONAPI
         primary_data = nil
       elsif options[:is_collection]
         # Have object collection.
-        passthrough_options[:serializer] ||= find_serializer_class(objects.first, options)
-        object_serializers = objects.map{|obj| passthrough_options[:serializer].new(obj, passthrough_options)}
+        serializer = options[:serializer] || find_serializer_class(objects.first, options)
+        object_serializers = objects.map{|obj| serializer.new(obj, passthrough_options)}
         primary_data = serialize_primary_multi(object_serializers, passthrough_options)
       else
         # Duck-typing check for a collection being passed without is_collection true.
@@ -308,14 +306,14 @@ module JSONAPI
             'Must provide `is_collection: true` to `serialize` when serializing collections.')
         end
         # Have single object.
-        passthrough_options[:serializer] ||= find_serializer_class(objects, options)
-        object_serializer = passthrough_options[:serializer].new(objects, passthrough_options)
+        serializer = options[:serializer] = find_serializer_class(objects, options)
+        object_serializer = serializer.new(objects, passthrough_options)
         primary_data = serialize_primary(object_serializer, passthrough_options)
       end
       result = {
         'data' => primary_data,
       }
-      result['meta'] = options[:meta].deep_stringify_keys if options[:meta].is_a?(Hash)
+      result[:meta] = options[:meta] if options[:meta].is_a?(Hash)
 
       # If 'include' relationships are given, recursively find and include each object.
       if includes
