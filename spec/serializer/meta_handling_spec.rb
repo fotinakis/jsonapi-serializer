@@ -15,7 +15,8 @@ describe JSONAPI::Serializer do
             "links"=>{
               "self"=>"/posts/1/relationships/author",
               "related"=>"/posts/1/author"
-            }
+            },
+            "data" => nil
           }, "long-comments"=>{
             "links"=>{
               "self"=>"/posts/1/relationships/long-comments",
@@ -24,8 +25,8 @@ describe JSONAPI::Serializer do
           }
         }
       }],
-      "meta" => {
-        "foo" => 'bar'
+      meta: {
+        foo: 'bar'
       }
     )
   end

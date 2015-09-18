@@ -48,12 +48,14 @@ describe JSONAPI::Serializer do
               'self' => '/long-comments/1/relationships/user',
               'related' => '/long-comments/1/user',
             },
+            'data' => nil
           },
           'post' => {
             'links' => {
               'self' => '/long-comments/1/relationships/post',
               'related' => '/long-comments/1/post',
             },
+            'data' => {"type" => 'posts', 'id' => '1'}
           },
         },
       })
@@ -100,6 +102,7 @@ describe JSONAPI::Serializer do
                 'self' => '/posts/1/relationships/author',
                 'related' => '/posts/1/author',
               },
+              'data' => nil
             },
             'long-comments' => {
               'links' => {
@@ -126,7 +129,7 @@ describe JSONAPI::Serializer do
           # This is technically invalid since relationships MUST contain at least one of links,
           # data, or meta, but we leave that up to the user.
           'relationships' => {
-            'author' => {},
+            'author' => {'data' => nil},
             'long-comments' => {},
           },
         })
@@ -480,15 +483,15 @@ describe JSONAPI::Serializer do
       # Make sure each long-comment has a circular reference back to the post.
       long_comments.each { |c| c.post = post }
 
+      includes = ['long_comments.user']
       expected_data = {
         # Same note about primary data linkages as above.
-        'data' => serialize_primary(MyApp::PostSerializer.new(post, include_linkages: ['long_comments.user'])),
+        'data' => serialize_primary(MyApp::PostSerializer.new(post, include_linkages: includes)),
         'included' => [
           serialize_primary(MyApp::UserSerializer.new(first_user)),
           serialize_primary(MyApp::UserSerializer.new(second_user)),
         ],
       }
-      includes = ['long-comments.user']
       actual_data = JSONAPI::Serializer.serialize(post, include: includes)
 
       # Multiple expectations for better diff output for debugging.
@@ -527,7 +530,7 @@ describe JSONAPI::Serializer do
       # Make sure each long-comment has a circular reference back to the post.
       long_comments.each { |c| c.post = post }
 
-      expected_primary_data = serialize_primary(MyApp::PostSerializer.new(post, include_linkages: ['author', 'long_comments.user']))
+      expected_primary_data = serialize_primary(MyApp::PostSerializer.new(post, include_linkages: ['author', 'long_comments']))
       expected_data = {
         'data' => expected_primary_data,
         'included' => [
@@ -537,7 +540,7 @@ describe JSONAPI::Serializer do
         ],
       }
       # Also test that it handles string include arguments.
-      includes = 'author, long-comments, long-comments.post.author'
+      includes = 'author, long_comments, long_comments.post.author'
       actual_data = JSONAPI::Serializer.serialize(post, include: includes)
 
       # Multiple expectations for better diff output for debugging.

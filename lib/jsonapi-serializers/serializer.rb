@@ -3,14 +3,11 @@ require 'active_support/core_ext/string'
 
 module JSONAPI
   module Serializer
+    extend ActiveSupport::Concern
     IdObject = Struct.new(:id)
 
-    def self.included(target)
-      target.send(:include, InstanceMethods)
-      target.extend ClassMethods
-      target.class_eval do
-        include JSONAPI::Attributes
-      end
+    included do
+      include JSONAPI::Attributes
     end
 
     module ClassMethods
@@ -23,230 +20,230 @@ module JSONAPI
       end
     end
 
-    module InstanceMethods
-      attr_accessor :object
-      attr_accessor :context
-      attr_accessor :base_url
+    attr_accessor :object
+    attr_accessor :context
+    attr_accessor :base_url
 
-      def initialize(object, options = {})
-        @object = object
-        @context = options[:context] || {}
-        @base_url = options[:base_url]
+    def initialize(object, options = {})
+      @object = object
+      @context = options[:context] || {}
+      @base_url = options[:base_url]
 
-        # Internal serializer options, not exposed through attr_accessor. No touchie.
-        @_include_linkages = options[:include_linkages] || []
-      end
+      # Internal serializer options, not exposed through attr_accessor. No touchie.
+      @_include_linkages = options[:include_linkages] || []
+    end
 
-      def include_linkages
-        @include_linkages ||= begin
-          if @_include_linkages.is_a?(String)
-            @_include_linkages.strip.split(/\s*,\s*/)
-          else
-            @_include_linkages.uniq
-          end
-        end
-      end
-
-      def direct_children_includes
-        @direct_children_includes ||= include_linkages.map{|link| link.sub(/\..*/, '') }.uniq
-      end
-
-      def include_linkages_for_child(child_name)
-          search_for = "#{child_name}."
-          include_linkages.select{|link| link.start_with? search_for }.map{|link| link[search_for.length..-1]}
-      end
-
-      # Override this to customize the JSON:API "id" for this object.
-      # Always return a string from this method to conform with the JSON:API spec.
-      def id
-        object.id.to_s
-      end
-
-      # Override this to customize the JSON:API "type" for this object.
-      # By default, the type is the object's class name lowercased, pluralized, and dasherized,
-      # per the spec naming recommendations: http://jsonapi.org/recommendations/#naming
-      # For example, 'MyApp::LongCommment' will become the 'long-comments' type.
-      def type
-        if object.is_a?(IdObject)
-          self.class.name.demodulize.sub(/Serializer/i, '').underscore.pluralize.dasherize
+    def include_linkages
+      @include_linkages ||= begin
+        if @_include_linkages.is_a?(String)
+          @_include_linkages.strip.split(/\s*,\s*/)
         else
-          object.class.name.demodulize.underscore.pluralize.dasherize
+          @_include_linkages.uniq
         end
       end
+    end
 
-      # Override this to customize how attribute names are formatted.
-      # By default, attribute names are dasherized per the spec naming recommendations:
-      # http://jsonapi.org/recommendations/#naming
-      def format_name(attribute_name)
-        attribute_name.to_s.dasherize
+    def direct_children_includes
+      @direct_children_includes ||= include_linkages.map{|link| link.sub(/\..*/, '') }.uniq
+    end
+
+    def include_linkages_for_child(child_name)
+        search_for = "#{child_name}."
+        include_linkages.select{|link| link.start_with? search_for }.map{|link| link[search_for.length..-1]}
+    end
+
+    # Override this to customize the JSON:API "id" for this object.
+    # Always return a string from this method to conform with the JSON:API spec.
+    def id
+      object.id.to_s
+    end
+
+    # Override this to customize the JSON:API "type" for this object.
+    # By default, the type is the object's class name lowercased, pluralized, and dasherized,
+    # per the spec naming recommendations: http://jsonapi.org/recommendations/#naming
+    # For example, 'MyApp::LongCommment' will become the 'long-comments' type.
+    def type
+      if object.is_a?(IdObject)
+        self.class.name.demodulize.sub(/Serializer/i, '').underscore.pluralize.dasherize
+      else
+        object.class.name.demodulize.underscore.pluralize.dasherize
       end
+    end
 
-      # The opposite of format_name. Override this if you override format_name.
-      def unformat_name(attribute_name)
-        attribute_name.to_s.underscore
-      end
+    # Override this to customize how attribute names are formatted.
+    # By default, attribute names are dasherized per the spec naming recommendations:
+    # http://jsonapi.org/recommendations/#naming
+    def format_name(attribute_name)
+      attribute_name.to_s.dasherize
+    end
 
-      # Override this to provide resource-object metadata.
-      # http://jsonapi.org/format/#document-structure-resource-objects
-      def meta
-      end
+    # The opposite of format_name. Override this if you override format_name.
+    def unformat_name(attribute_name)
+      attribute_name.to_s.underscore
+    end
 
-      # Override this to set a base URL (http://example.com) for all links. No trailing slash.
-      def base_url
-        @base_url
-      end
+    # Override this to provide resource-object metadata.
+    # http://jsonapi.org/format/#document-structure-resource-objects
+    def meta
+    end
 
-      def self_link
-        "#{base_url}/#{type}/#{id}"
-      end
+    # Override this to set a base URL (http://example.com) for all links. No trailing slash.
+    def base_url
+      @base_url
+    end
 
-      def relationship_self_link(attribute_name)
-        "#{self_link}/relationships/#{format_name(attribute_name)}"
-      end
+    def self_link
+      "#{base_url}/#{type}/#{id}"
+    end
 
-      def relationship_related_link(attribute_name)
-        "#{self_link}/#{format_name(attribute_name)}"
-      end
+    def relationship_self_link(attribute_name)
+      "#{self_link}/relationships/#{format_name(attribute_name)}"
+    end
 
-      def links
+    def relationship_related_link(attribute_name)
+      "#{self_link}/#{format_name(attribute_name)}"
+    end
+
+    def links
+      data = {}
+      data.merge!({'self' => self_link}) if self_link
+    end
+
+    def relationships
+      @relationships ||= begin
         data = {}
-        data.merge!({'self' => self_link}) if self_link
-      end
+        # Merge in data for has_one relationships.
+        has_one_relationships.each do |attribute_name, related_object_serializer|
+          formatted_attribute_name = format_name(attribute_name)
 
-      def relationships
-        @relationships ||= begin
-          data = {}
-          # Merge in data for has_one relationships.
-          has_one_relationships.each do |attribute_name, related_object_serializer|
-            formatted_attribute_name = format_name(attribute_name)
+          data[formatted_attribute_name] = {}
+          links_self = relationship_self_link(attribute_name)
+          links_related = relationship_related_link(attribute_name)
+          data[formatted_attribute_name]['links'] = {} if links_self || links_related
+          data[formatted_attribute_name]['links']['self'] = links_self if links_self
+          data[formatted_attribute_name]['links']['related'] = links_related if links_related
 
-            data[formatted_attribute_name] = {}
-            links_self = relationship_self_link(attribute_name)
-            links_related = relationship_related_link(attribute_name)
-            data[formatted_attribute_name]['links'] = {} if links_self || links_related
-            data[formatted_attribute_name]['links']['self'] = links_self if links_self
-            data[formatted_attribute_name]['links']['related'] = links_related if links_related
-
-            if related_object_serializer.nil? or related_object_serializer.id.nil?
-              # Spec: Resource linkage MUST be represented as one of the following:
-              # - null for empty to-one relationships.
-              # http://jsonapi.org/format/#document-structure-resource-relationships
-              data[formatted_attribute_name].merge!({'data' => nil})
-            else
-              data[formatted_attribute_name].merge!({
-                'data' => {
-                  'type' => related_object_serializer.type.to_s,
-                  'id' => related_object_serializer.id.to_s,
-                },
-              })
-            end
-          end
-
-          # Merge in data for has_many relationships.
-          has_many_relationships.each do |attribute_name, serialized_objects|
-            formatted_attribute_name = format_name(attribute_name)
-
-            data[formatted_attribute_name] = {}
-            links_self = relationship_self_link(attribute_name)
-            links_related = relationship_related_link(attribute_name)
-            data[formatted_attribute_name]['links'] = {} if links_self || links_related
-            data[formatted_attribute_name]['links']['self'] = links_self if links_self
-            data[formatted_attribute_name]['links']['related'] = links_related if links_related
-
+          if related_object_serializer.nil? or related_object_serializer.id.nil?
             # Spec: Resource linkage MUST be represented as one of the following:
-            # - an empty array ([]) for empty to-many relationships.
-            # - an array of linkage objects for non-empty to-many relationships.
+            # - null for empty to-one relationships.
             # http://jsonapi.org/format/#document-structure-resource-relationships
-            if direct_children_includes.include?(attribute_name.to_s)
-              data[formatted_attribute_name].merge!({'data' => []})
-              serialized_objects = serialized_objects || []
-              serialized_objects.each do |related_object_serializer|
-                data[formatted_attribute_name]['data'] << {
-                  'type' => related_object_serializer.type.to_s,
-                  'id' => related_object_serializer.id.to_s,
-                }
-              end
-            end
-          end
-          data
-        end
-      end
-
-      def attributes
-        return {} if self.class.attributes_map.nil?
-        attributes = {}
-        self.class.attributes_map.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          value = evaluate_attr_or_block(attr_data[:attr_or_block])
-          attributes[format_name(attribute_name)] = value
-        end
-        attributes
-      end
-
-      def has_one_relationships
-        return {} if self.class.to_one_associations.nil?
-        @has_one_relationships ||= begin
-          data = {}
-          self.class.to_one_associations.each do |attribute_name, attr_data|
-            next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-            id_only = !direct_children_includes.include?(attribute_name.to_s)
-            value = evaluate_attr_or_block(attr_data[:attr_or_block], id_only: id_only, id_attribute: attr_data[:options][:id_attribute])
-            if value
-              serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(value)
-              data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(attribute_name))
-            else
-              data[attribute_name] = nil
-            end
-          end
-          data
-        end
-      end
-
-      def has_many_relationships
-        return {} if self.class.to_many_associations.nil?
-        @has_many_relationships ||= begin
-          data = {}
-          self.class.to_many_associations.each do |attribute_name, attr_data|
-            next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-            objects = evaluate_attr_or_block(attr_data[:attr_or_block])
-            if objects and objects.any?
-              serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(objects.first)
-              data[attribute_name] = objects.map{|obj| serializer_class.new obj, include_linkages: include_linkages_for_child(attribute_name) }
-            else
-              data[attribute_name] = []
-            end
-          end
-          data
-        end
-      end
-
-      def should_include_attr?(if_method_name, unless_method_name)
-        # Allow "if: :show_title?" and "unless: :hide_title?" attribute options.
-        show_attr = true
-        show_attr &&= send(if_method_name) if if_method_name
-        show_attr &&= !send(unless_method_name) if unless_method_name
-        show_attr
-      end
-      protected :should_include_attr?
-
-      def evaluate_attr_or_block(attr_or_block, options = {})
-        if attr_or_block.is_a?(Proc)
-          # A custom block was given, call it to get the value.
-          instance_eval(&attr_or_block)
-        elsif options[:id_only]
-          id_attribute = options[:id_attribute] || :"#{attr_or_block}_id"
-          if object.respond_to?(id_attribute)
-            IdObject.new(object.public_send(id_attribute))
+            data[formatted_attribute_name].merge!({'data' => nil})
           else
-            nil
+            data[formatted_attribute_name].merge!({
+              'data' => {
+                'type' => related_object_serializer.type.to_s,
+                'id' => related_object_serializer.id.to_s,
+              },
+            })
           end
+        end
+
+        # Merge in data for has_many relationships.
+        has_many_relationships.each do |attribute_name, serialized_objects|
+          formatted_attribute_name = format_name(attribute_name)
+
+          data[formatted_attribute_name] = {}
+          links_self = relationship_self_link(attribute_name)
+          links_related = relationship_related_link(attribute_name)
+          data[formatted_attribute_name]['links'] = {} if links_self || links_related
+          data[formatted_attribute_name]['links']['self'] = links_self if links_self
+          data[formatted_attribute_name]['links']['related'] = links_related if links_related
+
+          # Spec: Resource linkage MUST be represented as one of the following:
+          # - an empty array ([]) for empty to-many relationships.
+          # - an array of linkage objects for non-empty to-many relationships.
+          # http://jsonapi.org/format/#document-structure-resource-relationships
+          if direct_children_includes.include?(attribute_name.to_s)
+            data[formatted_attribute_name].merge!({'data' => []})
+            serialized_objects = serialized_objects || []
+            serialized_objects.each do |related_object_serializer|
+              data[formatted_attribute_name]['data'] << {
+                'type' => related_object_serializer.type.to_s,
+                'id' => related_object_serializer.id.to_s,
+              }
+            end
+          end
+        end
+        data
+      end
+    end
+
+    def attributes
+      return {} if self.class.attributes_map.nil?
+      attributes = {}
+      self.class.attributes_map.each do |attribute_name, attr_data|
+        next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
+        value = evaluate_attr_or_block(attr_data[:attr_or_block])
+        attributes[format_name(attribute_name)] = value
+      end
+      attributes
+    end
+
+    def has_one_relationships
+      return {} if self.class.to_one_associations.nil?
+      @has_one_relationships ||= begin
+        data = {}
+        self.class.to_one_associations.each do |attribute_name, attr_data|
+          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
+          id_only = !direct_children_includes.include?(attribute_name.to_s)
+          value = evaluate_attr_or_block(attr_data[:attr_or_block], id_only: id_only, id_attribute: attr_data[:options][:id_attribute])
+          if value
+            serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(value)
+            data[attribute_name] = serializer_class.new(value, include_linkages: include_linkages_for_child(attribute_name))
+          else
+            data[attribute_name] = nil
+          end
+        end
+        data
+      end
+    end
+
+    def has_many_relationships
+      return {} if self.class.to_many_associations.nil?
+      @has_many_relationships ||= begin
+        data = {}
+        self.class.to_many_associations.each do |attribute_name, attr_data|
+          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
+          objects = evaluate_attr_or_block(attr_data[:attr_or_block])
+          if objects and objects.any?
+            serializer_class = attr_data[:options][:serializer] || JSONAPI::Serializer.find_serializer_class(objects.first)
+            data[attribute_name] = objects.map{|obj| serializer_class.new obj, include_linkages: include_linkages_for_child(attribute_name) }
+          else
+            data[attribute_name] = []
+          end
+        end
+        data
+      end
+    end
+
+    def should_include_attr?(if_method_name, unless_method_name)
+      # Allow "if: :show_title?" and "unless: :hide_title?" attribute options.
+      show_attr = true
+      show_attr &&= send(if_method_name) if if_method_name
+      show_attr &&= !send(unless_method_name) if unless_method_name
+      show_attr
+    end
+    protected :should_include_attr?
+
+    def evaluate_attr_or_block(attr_or_block, options = {})
+      if attr_or_block.is_a?(Proc)
+        # A custom block was given, call it to get the value.
+        instance_eval(&attr_or_block)
+      elsif options[:id_only]
+        id_attribute = options[:id_attribute] || :"#{attr_or_block}_id"
+        if object.respond_to?(id_attribute)
+          IdObject.new(object.public_send(id_attribute))
         else
-          # Default behavior, call a method by the name of the attribute.
+          #NOTE: Expensive lookup for relation that is not included
+          # this call should be prevented by good configuration
           object.send(attr_or_block)
         end
+      else
+        # Default behavior, call a method by the name of the attribute.
+        object.send(attr_or_block)
       end
-      protected :evaluate_attr_or_block
     end
+    protected :evaluate_attr_or_block
 
     def self.find_serializer_class(object, options = {})
       return options[:serializer] if options[:serializer]
