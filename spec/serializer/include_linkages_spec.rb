@@ -14,7 +14,7 @@ describe JSONAPI::Serializer do
     subject{ serializer.direct_children_includes }
     it 'returns the direct children of include_linkages' do
       serializer_params[:include_linkages] = %w[comments something.else extra.nesting extra.double.nesting]
-      subject.should eq %w[comments something extra]
+      subject.should eq %i[comments something extra]
     end
   end
 

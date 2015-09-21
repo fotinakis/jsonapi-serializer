@@ -446,7 +446,7 @@ describe JSONAPI::Serializer do
       # Make sure each long-comment has a circular reference back to the post.
       long_comments.each { |c| c.post = post }
 
-      includes = ['long-comments.post.author']
+      includes = ['long_comments.post.author']
       expected_data = {
         # Note that in this case the primary data does not include linkage for 'long-comments',
         # forcing clients to still have to request linkage from long-comments and post. This is an
@@ -505,7 +505,7 @@ describe JSONAPI::Serializer do
       long_comments = [create(:long_comment, user: comment_user)]
       post = create(:post, :with_author, long_comments: long_comments)
 
-      includes = ['long-comments', 'long-comments.user']
+      includes = ['long_comments', 'long_comments.user']
       expected_primary_data = serialize_primary(MyApp::PostSerializer.new(post, include_linkages: includes))
       expected_data = {
         'data' => expected_primary_data,
