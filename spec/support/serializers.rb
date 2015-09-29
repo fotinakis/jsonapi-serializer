@@ -11,10 +11,22 @@ module MyApp
     attr_accessor :id
     attr_accessor :body
     attr_accessor :user
+    attr_accessor :blog
     attr_accessor :post
+    attr_accessor :paragraphs
   end
 
   class User
+    attr_accessor :id
+    attr_accessor :name
+  end
+
+  class Paragraph
+    attr_accessor :id
+    attr_accessor :content
+  end
+
+  class Blog
     attr_accessor :id
     attr_accessor :name
   end
@@ -39,6 +51,31 @@ module MyApp
 
     # Circular-reference back to post.
     has_one :post
+  end
+
+  class CommentSerializerWithLinkageLevelMetadata
+    include JSONAPI::Serializer
+
+    attribute :body
+    has_many :paragraphs
+    has_one :blog
+  end
+
+  class ParagraphSerializer
+    include JSONAPI::Serializer
+
+    def self.meta(objects)
+      { 'count' => objects.count.to_s }
+    end
+  end
+
+  class BlogSerializer
+    include JSONAPI::Serializer
+
+    def self.meta(objects)
+      return unless objects.respond_to?(:count)
+      { 'count' => objects.count.to_s }
+    end
   end
 
   class UserSerializer
@@ -76,6 +113,26 @@ module MyApp
     end
 
     def meta
+      {
+        'copyright' => 'Copyright 2015 Example Corp.',
+        'authors' => ['Aliens'],
+      }
+    end
+  end
+
+  class PostSerializerWithTopLevelMetadata
+    include JSONAPI::Serializer
+
+    attribute :title
+    attribute :long_content do
+      object.body
+    end
+
+    def type
+      'posts'  # Intentionally test string type.
+    end
+
+    def self.meta(objects)
       {
         'copyright' => 'Copyright 2015 Example Corp.',
         'authors' => ['Aliens'],

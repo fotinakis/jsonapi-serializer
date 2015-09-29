@@ -101,6 +101,15 @@ module JSONAPI
           data[formatted_attribute_name]['links']['self'] = links_self if links_self
           data[formatted_attribute_name]['links']['related'] = links_related if links_related
 
+          if !object.nil?
+            related_object_serializer = JSONAPI::Serializer.find_serializer(object).class
+
+            if related_object_serializer.respond_to?(:meta)
+              meta = related_object_serializer.meta(object)
+              data[formatted_attribute_name]['meta'] = meta if meta
+            end
+          end
+
           if @_include_linkages.include?(formatted_attribute_name)
             if object.nil?
               # Spec: Resource linkage MUST be represented as one of the following:
@@ -129,6 +138,17 @@ module JSONAPI
           data[formatted_attribute_name]['links'] = {} if links_self || links_related
           data[formatted_attribute_name]['links']['self'] = links_self if links_self
           data[formatted_attribute_name]['links']['related'] = links_related if links_related
+
+          objects ||= []
+
+          if !objects.first.nil?
+            related_object_serializer = JSONAPI::Serializer.find_serializer(objects.first).class
+
+            if related_object_serializer.respond_to?(:meta)
+              meta = related_object_serializer.meta(objects)
+              data[formatted_attribute_name]['meta'] = meta if meta
+            end
+          end
 
           # Spec: Resource linkage MUST be represented as one of the following:
           # - an empty array ([]) for empty to-many relationships.

@@ -76,6 +76,37 @@ describe JSONAPI::Serializer do
         },
       })
     end
+    it 'can serialize primary data for a simple object with linkage-level metadata' do
+      comment = create(:long_comment, paragraphs: [create(:paragraph)], blog: create(:blog))
+      primary_data = serialize_primary(comment, {serializer: MyApp::CommentSerializerWithLinkageLevelMetadata})
+      expect(primary_data).to eq({
+        'id' => '1',
+        'type' => 'long-comments',
+        'attributes' => {
+          'body' => 'Body for LongComment 1',
+        },
+        'links' => {
+          'self' => '/long-comments/1',
+        },
+        'relationships' => {
+          'blog' => {
+            'links' => {
+              'self' => '/long-comments/1/relationships/blog',
+              'related' => '/long-comments/1/blog'
+            }
+          },
+          'paragraphs' => {
+            'links' => {
+              'self' => '/long-comments/1/relationships/paragraphs',
+              'related' => '/long-comments/1/paragraphs',
+            },
+            'meta' => {
+              'count' => '1'
+            }
+          },
+        },
+      })
+    end
     context 'without any linkage includes (default)' do
       it 'can serialize primary data for an object with to-one and to-many relationships' do
         post = create(:post)

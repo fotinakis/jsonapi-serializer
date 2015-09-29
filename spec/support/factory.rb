@@ -23,4 +23,16 @@ FactoryGirl.define do
     sequence(:id) {|n| n }
     sequence(:name) {|n| "User ##{n}"}
   end
+
+  factory :paragraph, class: MyApp::Paragraph do
+    skip_create
+    sequence(:id) { |n| n }
+    sequence(:content) { |n| "Yo man! #{n} " }
+  end
+
+  factory :blog, class: MyApp::Blog do
+    skip_create
+    sequence(:id) { |n| n }
+    sequence(:name) { |n| "Yo man! #{n} " }
+  end
 end
