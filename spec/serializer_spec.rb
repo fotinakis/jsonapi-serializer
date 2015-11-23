@@ -753,4 +753,36 @@ describe JSONAPI::Serializer do
       })
     end
   end
+
+  describe 'inheritance through subclassing' do
+    it 'inherits attributes' do
+      tagged_post = create(:tagged_post)
+      options = {serializer: MyApp::PostSerializerWithInheritedProperties}
+      data = JSONAPI::Serializer.serialize(tagged_post, options);
+      expect(data['data']['attributes']).to have_key('title');
+      expect(data['data']['attributes']).to have_key('long-content');
+    end
+
+    it 'inherits relations' do
+      long_comments = create_list(:long_comment, 2)
+      tagged_post = create(:tagged_post, :with_author, long_comments: long_comments)
+      options = {serializer: MyApp::PostSerializerWithInheritedProperties}
+      data = JSONAPI::Serializer.serialize(tagged_post, options);
+
+      expect(data['data']['relationships']).to eq({
+        'author' => {
+          'links' => {
+            'self' => '/tagged-posts/1/relationships/author',
+            'related' => '/tagged-posts/1/author',
+          },
+        },
+        'long-comments' => {
+          'links' => {
+            'self' => '/tagged-posts/1/relationships/long-comments',
+            'related' => '/tagged-posts/1/long-comments',
+          }
+        }
+      })
+    end
+  end
 end
