@@ -658,6 +658,27 @@ describe JSONAPI::Serializer do
       expect(actual_data).to eq(expected_data)
     end
 
+    it 'handles serializers passed to has_one and has_many relationships' do
+      user = create(:user)
+      long_comments = create_list(:long_comment, 2, user: user)
+      post = create(:post, :with_author, long_comments: long_comments)
+
+      actual_data = JSONAPI::Serializer.serialize(post, {serializer: MyApp::PostSerializerWithCustomSerializers,
+                                                         include: ['author', 'long-comments']})
+
+      author_data = JSONAPI::Serializer.send(:serialize_primary, 
+                                             post.author, 
+                                             {serializer: MyApp::UserCustomSerializer})
+      comments_data = JSONAPI::Serializer.send(:serialize_primary_multi,
+                                               long_comments, 
+                                               {serializer: MyApp::LongCommentCustomSerializer})
+      expected_included_data = []
+      expected_included_data << author_data
+      comments_data.each{ |c| expected_included_data << c }
+      
+      expect(actual_data['included']).to eq(expected_included_data)
+    end
+
     context 'on collection' do
       it 'handles include of has_many relationships with compound document' do
         long_comments = create_list(:long_comment, 2)

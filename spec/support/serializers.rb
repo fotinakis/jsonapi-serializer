@@ -44,6 +44,36 @@ module MyApp
     has_many :long_comments
   end
 
+  class UserCustomSerializer
+    include JSONAPI::Serializer
+
+    attribute :name do
+      object.name.upcase
+    end
+
+    has_many :posts
+  end
+
+  class LongCommentCustomSerializer
+    include JSONAPI::Serializer
+  
+    attribute :body do
+      object.body.upcase
+    end
+  end
+
+  class PostSerializerWithCustomSerializers
+    include JSONAPI::Serializer
+
+    attribute :title
+    attribute :long_content do
+      object.body
+    end
+
+    has_one :author, serializer: UserCustomSerializer 
+    has_many :long_comments, serializer: LongCommentCustomSerializer
+  end
+
   class LongCommentSerializer
     include JSONAPI::Serializer
 
