@@ -1,4 +1,20 @@
 module MyApp
+  class PostWithContext
+    attr_accessor :id
+    attr_accessor :long_comments_with_context
+  end
+
+  class LongCommentWithContext
+    attr_accessor :id
+    attr_accessor :post
+    attr_accessor :user_with_context
+  end
+
+  class UserWithContext
+    attr_accessor :id
+    attr_accessor :name
+  end
+
   class Post
     attr_accessor :id
     attr_accessor :title
@@ -30,6 +46,11 @@ module MyApp
     def jsonapi_serializer_class_name
       'MyAppOtherNamespace::UserSerializer'
     end
+  end
+
+  class PostWithContextSerializer
+    include JSONAPI::Serializer
+    has_many :long_comments_with_context
   end
 
   class PostSerializer
@@ -101,6 +122,29 @@ module MyApp
       context.fetch(:hide_body, false)
     end
   end
+
+  class LongCommentWithContextSerializer
+    include JSONAPI::Serializer
+
+    attribute :post, if: :show_post?
+    has_one :user_with_context
+
+    def show_post?
+      context.fetch(:show_post, true)
+    end
+
+  end
+
+  class UserWithContextSerializer
+    include JSONAPI::Serializer
+
+    attribute :name, if: :display_name?
+
+    def display_name?
+      context.fetch(:display_name, true)
+    end
+  end
+
 
   class PostSerializerWithoutLinks
     include JSONAPI::Serializer

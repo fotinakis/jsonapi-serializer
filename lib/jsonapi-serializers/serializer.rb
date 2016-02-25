@@ -303,6 +303,7 @@ module JSONAPI
         result['included'] = relationship_data.map do |_, data|
           included_passthrough_options = {}
           included_passthrough_options[:base_url] = passthrough_options[:base_url]
+          included_passthrough_options[:context] = passthrough_options[:context]
           included_passthrough_options[:serializer] = find_serializer_class(data[:object])
           included_passthrough_options[:include_linkages] = data[:include_linkages]
           serialize_primary(data[:object], included_passthrough_options)
