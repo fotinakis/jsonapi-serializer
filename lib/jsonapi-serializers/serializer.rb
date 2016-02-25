@@ -320,19 +320,20 @@ module JSONAPI
       return if object.nil?
 
       serializer = serializer_class.new(object, options)
-      data = {
+
+      {
         'id' => serializer.id.to_s,
         'type' => serializer.type.to_s,
         'attributes' => serializer.attributes,
-      }
-
-      # Merge in optional top-level members if they are non-nil.
-      # http://jsonapi.org/format/#document-structure-resource-objects
-      data.merge!({'attributes' => serializer.attributes}) if !serializer.attributes.nil?
-      data.merge!({'links' => serializer.links}) if !serializer.links.nil?
-      data.merge!({'relationships' => serializer.relationships}) unless serializer.relationships.empty?
-      data.merge!({'meta' => serializer.meta}) if !serializer.meta.nil?
-      data
+      }.tap do |data|
+        # Merge in optional top-level members if they are non-nil.
+        # http://jsonapi.org/format/#document-structure-resource-objects
+        %w(links relationships meta).each do |key|
+          value = serializer.send(key)
+          is_blank = (key == 'relationships' ? value.empty? : value.nil?)
+          data[key] = value unless is_blank
+        end
+      end
     end
     class << self; protected :serialize_primary; end
 
