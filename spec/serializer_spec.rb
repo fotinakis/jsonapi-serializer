@@ -778,8 +778,23 @@ describe JSONAPI::Serializer do
       expect(data['data']['attributes']).to_not have_key('body')
     end
   end
+
   describe 'context' do
-    xit 'is correctly passed through all serializers' do
+    it 'is correctly passed through all serializers' do
+      post = MyApp::PostWithContext.new
+      long_comment = MyApp::LongCommentWithContext.new
+      long_comment.user_with_context = MyApp::UserWithContext.new
+      post.long_comments_with_context = [long_comment]
+      options = {}
+      options[:context] = {show_post: false, display_name: false}
+      options[:include] = ['long-comments-with-context', 'long-comments-with-context.user-with-context']
+
+      data = JSONAPI::Serializer.serialize(post, options)
+      long_comment = data['included'].find { |d| d['type'] == 'long-comment-with-contexts' }
+      user = data['included'].find { |d| d['type'] == 'user-with-contexts' }
+
+      expect(long_comment['attributes']).to_not have_key('post')
+      expect(user['attributes']).to_not have_key('name')
     end
   end
 
