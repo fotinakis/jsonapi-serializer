@@ -29,6 +29,7 @@ module JSONAPI
       def initialize(object, options = {})
         @object = object
         @context = options[:context] || {}
+        @finder = options[:finder] || Serializer.method(:default_finder)
         @base_url = options[:base_url]
 
         # Internal serializer options, not exposed through attr_accessor. No touchie.
@@ -110,7 +111,7 @@ module JSONAPI
               # http://jsonapi.org/format/#document-structure-resource-relationships
               data[formatted_attribute_name]['data'] = nil
             else
-              related_object_serializer = JSONAPI::Serializer.find_serializer(object)
+              related_object_serializer = @finder.call(object).new(object)
               data[formatted_attribute_name]['data'] = {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,
@@ -138,7 +139,7 @@ module JSONAPI
             data[formatted_attribute_name]['data'] = []
             objects = has_many_relationship(attribute_name, attr_data) || []
             objects.each do |obj|
-              related_object_serializer = JSONAPI::Serializer.find_serializer(obj)
+              related_object_serializer = @finder.call(obj).new(obj)
               data[formatted_attribute_name]['data'] << {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,
@@ -225,6 +226,15 @@ module JSONAPI
       find_serializer_class(object).new(object)
     end
 
+    def self.default_finder(object)
+      klass_name = 
+        if object.respond_to?(:jsonapi_serializer_class_name)
+          object.jsonapi_serializer_class_name.to_s
+        else "#{object.class.name}Serializer"
+        end
+      klass_name.constantize
+    end
+
     def self.serialize(objects, options = {})
       # Normalize option strings to symbols.
       options[:is_collection] = options.delete('is_collection') || options[:is_collection] || false
@@ -234,6 +244,7 @@ module JSONAPI
       options[:skip_collection_check] = options.delete('skip_collection_check') || options[:skip_collection_check] || false
       options[:base_url] = options.delete('base_url') || options[:base_url]
       options[:meta] = options.delete('meta') || options[:meta]
+      options[:finder] = options.delete('finder') || options[:finder] || method(:default_finder)
 
       # Normalize includes.
       includes = options[:include]
@@ -243,6 +254,7 @@ module JSONAPI
       passthrough_options = {
         context: options[:context],
         serializer: options[:serializer],
+        finder: options[:finder],
         include: includes,
         base_url: options[:base_url]
       }
@@ -296,11 +308,12 @@ module JSONAPI
         objects.compact.each do |obj|
           # Use the mutability of relationship_data as the return datastructure to take advantage
           # of the internal special merging logic.
-          find_recursive_relationships(obj, inclusion_tree, relationship_data)
+          find_recursive_relationships(obj, inclusion_tree, relationship_data, finder: options[:finder])
         end
 
         result['included'] = relationship_data.map do |_, data|
           included_passthrough_options = {}
+          included_passthrough_options[:finder] = passthrough_options[:finder]
           included_passthrough_options[:base_url] = passthrough_options[:base_url]
           included_passthrough_options[:serializer] = find_serializer_class(data[:object])
           included_passthrough_options[:include_linkages] = data[:include_linkages]
@@ -311,7 +324,8 @@ module JSONAPI
     end
 
     def self.serialize_primary(object, options = {})
-      serializer_class = options[:serializer] || find_serializer_class(object)
+      options[:finder] = options[:finder] || method(:default_finder)
+      serializer_class = options[:serializer] || options[:finder].call(object)
 
       # Spec: Primary data MUST be either:
       # - a single resource object or null, for requests that target single resources.
@@ -356,12 +370,13 @@ module JSONAPI
     #   ['users', '1'] => {object: <User>, include_linkages: []},
     #   ['users', '2'] => {object: <User>, include_linkages: []},
     # }
-    def self.find_recursive_relationships(root_object, root_inclusion_tree, results)
+    def self.find_recursive_relationships(root_object, root_inclusion_tree, results, options = {})
+      finder = options[:finder] || method(:default_finder)
       root_inclusion_tree.each do |attribute_name, child_inclusion_tree|
         # Skip the sentinal value, but we need to preserve it for siblings.
         next if attribute_name == :_include
 
-        serializer = JSONAPI::Serializer.find_serializer(root_object)
+        serializer = finder.call(root_object).new(root_object)
         unformatted_attr_name = serializer.unformat_name(attribute_name).to_sym
 
         # We know the name of this relationship, but we don't know where it is stored internally.
@@ -407,7 +422,7 @@ module JSONAPI
           # If it is not set, that indicates that this is an inner path and not a leaf and will
           # be followed by the recursion below.
           objects.each do |obj|
-            obj_serializer = JSONAPI::Serializer.find_serializer(obj)
+            obj_serializer = finder.call(obj).new(obj)
             # Use keys of ['posts', '1'] for the results to enforce uniqueness.
             # Spec: A compound document MUST NOT include more than one resource object for each
             # type and id pair.
