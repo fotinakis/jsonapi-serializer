@@ -259,7 +259,7 @@ describe JSONAPI::Serializer do
           },
         })
       end
-      fit 'can serialize primary data for a simple to-many relationship' do
+      it 'can serialize primary data for a simple to-many relationship' do
         long_comments = create_list(:long_comment, 2)
         post = create(:post, long_comments: long_comments)
         options = {
