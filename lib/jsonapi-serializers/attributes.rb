@@ -25,19 +25,19 @@ module JSONAPI
       attr_accessor :to_many_associations
 
       def attribute(name, options = {}, &block)
-        add_attribute(name, options, &block)
+        add_attribute(name.to_s, options, &block)
       end
 
       def attributes(*names)
-        names.each { |name| add_attribute(name) }
+        names.each { |name| add_attribute(name.to_s) }
       end
 
       def has_one(name, options = {}, &block)
-        add_to_one_association(name, options, &block)
+        add_to_one_association(name.to_s, options, &block)
       end
 
       def has_many(name, options = {}, &block)
-        add_to_many_association(name, options, &block)
+        add_to_many_association(name.to_s, options, &block)
       end
 
       def add_attribute(name, options = {}, &block)

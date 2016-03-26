@@ -94,7 +94,7 @@ module JSONAPI
         data = {}
         # Merge in data for has_one relationships.
         has_one_relationships.each do |attribute_name, attr_data|
-          formatted_attribute_name = format_name(attribute_name)
+          formatted_attribute_name = format_name(attribute_name).to_s
 
           data[formatted_attribute_name] = {}
           links_self = relationship_self_link(attribute_name)
@@ -122,7 +122,7 @@ module JSONAPI
 
         # Merge in data for has_many relationships.
         has_many_relationships.each do |attribute_name, attr_data|
-          formatted_attribute_name = format_name(attribute_name)
+          formatted_attribute_name = format_name(attribute_name).to_s
 
           data[formatted_attribute_name] = {}
           links_self = relationship_self_link(attribute_name)
@@ -156,7 +156,7 @@ module JSONAPI
         self.class.attributes_map.each do |name, attr_data|
           next if !should_include_attr?(name, attr_data[:options][:if], attr_data[:options][:unless])
           value = evaluate_attr_or_block(name, attr_data[:attr_or_block])
-          attributes[format_name(name)] = value
+          attributes[format_name(name).to_s] = value
         end
         attributes
       end
@@ -245,7 +245,7 @@ module JSONAPI
       # Normalize fields
       fields = options[:fields]
       fields = Hash[ fields.map do |type,tfields|
-        (tfields.is_a?(String) ? tfields.split(',') : tfields).uniq.map(&:to_sym)
+        (tfields.is_a?(String) ? tfields.split(',') : tfields).uniq
       end ] if fields
 
       # An internal-only structure that is passed through serializers as they are created.
@@ -373,7 +373,7 @@ module JSONAPI
         next if attribute_name == :_include
 
         serializer = JSONAPI::Serializer.find_serializer(root_object)
-        unformatted_attr_name = serializer.unformat_name(attribute_name).to_sym
+        unformatted_attr_name = serializer.unformat_name(attribute_name)
 
         # We know the name of this relationship, but we don't know where it is stored internally.
         # Check if it is a has_one or has_many relationship.
