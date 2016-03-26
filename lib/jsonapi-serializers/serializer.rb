@@ -240,12 +240,12 @@ module JSONAPI
 
       # Normalize includes.
       includes = options[:include]
-      includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq if includes
+      includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq.map(&:to_s) if includes
 
       # Normalize fields
       fields = options[:fields]
       fields = Hash[ fields.map do |type,tfields|
-        (tfields.is_a?(String) ? tfields.split(',') : tfields).uniq
+        (tfields.is_a?(String) ? tfields.split(',') : tfields).uniq.map(&:to_s)
       end ] if fields
 
       # An internal-only structure that is passed through serializers as they are created.
