@@ -155,7 +155,7 @@ module JSONAPI
         attributes = {}
         self.class.attributes_map.each do |name, attr_data|
           next if !should_include_attr?(name, attr_data[:options][:if], attr_data[:options][:unless])
-          value = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
+          value = evaluate_attr_or_block(name, attr_data[:attr_or_block])
           attributes[format_name(name)] = value
         end
         attributes
