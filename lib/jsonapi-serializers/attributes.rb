@@ -33,10 +33,14 @@ module JSONAPI
       end
 
       def has_one(name, options = {}, &block)
+        options[:links] ||= true
+        options[:data] ||= false
         add_to_one_association(name, options, &block)
       end
 
       def has_many(name, options = {}, &block)
+        options[:links] ||= true
+        options[:data] ||= false
         add_to_many_association(name, options, &block)
       end
 
