@@ -30,6 +30,7 @@ module JSONAPI
         @object = object
         @context = options[:context] || {}
         @base_url = options[:base_url]
+        @fields = options[:fields] || {}
 
         # Internal serializer options, not exposed through attr_accessor. No touchie.
         @_include_linkages = options[:include_linkages] || []
@@ -93,7 +94,7 @@ module JSONAPI
         data = {}
         # Merge in data for has_one relationships.
         has_one_relationships.each do |attribute_name, attr_data|
-          formatted_attribute_name = format_name(attribute_name)
+          formatted_attribute_name = format_name(attribute_name).to_s
 
           data[formatted_attribute_name] = {}
           links_self = relationship_self_link(attribute_name)
@@ -121,7 +122,7 @@ module JSONAPI
 
         # Merge in data for has_many relationships.
         has_many_relationships.each do |attribute_name, attr_data|
-          formatted_attribute_name = format_name(attribute_name)
+          formatted_attribute_name = format_name(attribute_name).to_s
 
           data[formatted_attribute_name] = {}
           links_self = relationship_self_link(attribute_name)
@@ -152,10 +153,10 @@ module JSONAPI
       def attributes
         return {} if self.class.attributes_map.nil?
         attributes = {}
-        self.class.attributes_map.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          value = evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
-          attributes[format_name(attribute_name)] = value
+        self.class.attributes_map.each do |name, attr_data|
+          next if !should_include_attr?(name, attr_data[:options][:if], attr_data[:options][:unless])
+          value = evaluate_attr_or_block(name, attr_data[:attr_or_block])
+          attributes[format_name(name).to_s] = value
         end
         attributes
       end
@@ -163,9 +164,9 @@ module JSONAPI
       def has_one_relationships
         return {} if self.class.to_one_associations.nil?
         data = {}
-        self.class.to_one_associations.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          data[attribute_name] = attr_data
+        self.class.to_one_associations.each do |name, attr_data|
+          next if !should_include_attr?(name, attr_data[:options][:if], attr_data[:options][:unless])
+          data[name] = attr_data
         end
         data
       end
@@ -177,9 +178,9 @@ module JSONAPI
       def has_many_relationships
         return {} if self.class.to_many_associations.nil?
         data = {}
-        self.class.to_many_associations.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attr_data[:options][:if], attr_data[:options][:unless])
-          data[attribute_name] = attr_data
+        self.class.to_many_associations.each do |name, attr_data|
+          next if !should_include_attr?(name, attr_data[:options][:if], attr_data[:options][:unless])
+          data[name] = attr_data
         end
         data
       end
@@ -188,11 +189,12 @@ module JSONAPI
         evaluate_attr_or_block(attribute_name, attr_data[:attr_or_block])
       end
 
-      def should_include_attr?(if_method_name, unless_method_name)
+      def should_include_attr?(attr_name, if_method_name, unless_method_name)
         # Allow "if: :show_title?" and "unless: :hide_title?" attribute options.
         show_attr = true
         show_attr &&= send(if_method_name) if if_method_name
         show_attr &&= !send(unless_method_name) if unless_method_name
+        show_attr &&= @fields[type].include?(attr_name) if @fields[type]
         show_attr
       end
       protected :should_include_attr?
@@ -229,6 +231,7 @@ module JSONAPI
       # Normalize option strings to symbols.
       options[:is_collection] = options.delete('is_collection') || options[:is_collection] || false
       options[:include] = options.delete('include') || options[:include]
+      options[:fields] = options.delete('fields') || options[:fields]
       options[:serializer] = options.delete('serializer') || options[:serializer]
       options[:context] = options.delete('context') || options[:context] || {}
       options[:skip_collection_check] = options.delete('skip_collection_check') || options[:skip_collection_check] || false
@@ -238,13 +241,20 @@ module JSONAPI
 
       # Normalize includes.
       includes = options[:include]
-      includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq if includes
+      includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq.map(&:to_s) if includes
+
+      # Normalize fields
+      fields = options[:fields]
+      fields = Hash[ fields.map do |type,tfields|
+        (tfields.is_a?(String) ? tfields.split(',') : tfields).uniq.map(&:to_s)
+      end ] if fields
 
       # An internal-only structure that is passed through serializers as they are created.
       passthrough_options = {
         context: options[:context],
         serializer: options[:serializer],
         include: includes,
+        fields: fields,
         base_url: options[:base_url]
       }
 
@@ -304,6 +314,7 @@ module JSONAPI
         result['included'] = relationship_data.map do |_, data|
           included_passthrough_options = {}
           included_passthrough_options[:base_url] = passthrough_options[:base_url]
+          included_passthrough_options[:fields] = passthrough_options[:fields]
           included_passthrough_options[:serializer] = find_serializer_class(data[:object])
           included_passthrough_options[:include_linkages] = data[:include_linkages]
           serialize_primary(data[:object], included_passthrough_options)
@@ -364,7 +375,7 @@ module JSONAPI
         next if attribute_name == :_include
 
         serializer = JSONAPI::Serializer.find_serializer(root_object)
-        unformatted_attr_name = serializer.unformat_name(attribute_name).to_sym
+        unformatted_attr_name = serializer.unformat_name(attribute_name)
 
         # We know the name of this relationship, but we don't know where it is stored internally.
         # Check if it is a has_one or has_many relationship.
