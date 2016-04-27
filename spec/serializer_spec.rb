@@ -361,8 +361,7 @@ describe JSONAPI::Serializer do
         'id' => '1',
         'type' => 'posts',
         'attributes' => {
-          'title' => 'Title for Post 1',
-          'long-content' => 'Body for Post 1',
+          'title' => 'Title for Post 1'
         },
         'links' => {
           'self' => '/posts/1',
@@ -376,7 +375,7 @@ describe JSONAPI::Serializer do
       })
     end
 
-    it 'allows to inclue data for relationships' do
+    it 'allows to include data for relationships' do
       long_comments = create_list(:long_comment, 2)
       post = create(:post, :with_author, long_comments: long_comments)
       primary_data = serialize_primary(post, { serializer: MyApp::PostSerializerWithIncludeData })
@@ -384,8 +383,7 @@ describe JSONAPI::Serializer do
         'id' => '1',
         'type' => 'posts',
         'attributes' => {
-          'title' => 'Title for Post 1',
-          'long-content' => 'Body for Post 1',
+          'title' => 'Title for Post 1'
         },
         'links' => {
           'self' => '/posts/1',

@@ -116,9 +116,6 @@ module MyApp
     include JSONAPI::Serializer
 
     attribute :title
-    attribute :long_content do
-      object.body
-    end
 
     has_one :author, include_links: false
     has_many :long_comments, include_links: false
@@ -132,9 +129,6 @@ module MyApp
     include JSONAPI::Serializer
 
     attribute :title
-    attribute :long_content do
-      object.body
-    end
 
     has_one :author, include_data: true
     has_many :long_comments, include_data: true
