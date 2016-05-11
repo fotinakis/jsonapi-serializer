@@ -417,10 +417,12 @@ module JSONAPI
         is_collection = false
         is_valid_attr = false
         if serializer.has_one_relationships.has_key?(unformatted_attr_name)
+          # Only valid include if relationship is allowed to be included
           is_valid_attr = serializer.has_one_relationships[unformatted_attr_name][:options][:allow_include]
           attr_data = serializer.has_one_relationships[unformatted_attr_name]
           object = serializer.has_one_relationship(unformatted_attr_name, attr_data)
         elsif serializer.has_many_relationships.has_key?(unformatted_attr_name)
+          # Only valid include  if relationship is allowed to be included
           is_valid_attr = serializer.has_many_relationships[unformatted_attr_name][:options][:allow_include]
           is_collection = true
           attr_data = serializer.has_many_relationships[unformatted_attr_name]
