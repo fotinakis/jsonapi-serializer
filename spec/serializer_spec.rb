@@ -560,6 +560,13 @@ describe JSONAPI::Serializer do
       expect { JSONAPI::Serializer.serialize(post, include: ['long_comments']) }.to raise_error(error)
     end
 
+    it 'raises error if include is not allowed on relationship' do
+      hidden_permission = create(:hidden_permission, :with_user)
+      user = hidden_permission.user
+      error = JSONAPI::Serializer::InvalidIncludeError
+      expect { JSONAPI::Serializer.serialize(user, include: ['hidden_permissions']) }.to raise_error(error)
+    end
+
     it 'can serialize a nil object when given serializer' do
       options = {serializer: MyApp::PostSerializer}
       expect(JSONAPI::Serializer.serialize(nil, options)).to eq({'data' => nil})

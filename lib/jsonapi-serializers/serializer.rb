@@ -116,8 +116,8 @@ module JSONAPI
             else
               related_object_serializer = JSONAPI::Serializer.find_serializer(object, @options)
               data[formatted_attribute_name]['data'] = {
-                'type' => related_object_serializer.type.to_s,
-                'id' => related_object_serializer.id.to_s,
+                  'type' => related_object_serializer.type.to_s,
+                  'id' => related_object_serializer.id.to_s,
               }
             end
           end
@@ -147,8 +147,8 @@ module JSONAPI
             objects.each do |obj|
               related_object_serializer = JSONAPI::Serializer.find_serializer(obj, @options)
               data[formatted_attribute_name]['data'] << {
-                'type' => related_object_serializer.type.to_s,
-                'id' => related_object_serializer.id.to_s,
+                  'type' => related_object_serializer.type.to_s,
+                  'id' => related_object_serializer.id.to_s,
               }
             end
           end
@@ -202,6 +202,7 @@ module JSONAPI
         show_attr &&= !send(unless_method_name) if unless_method_name
         show_attr
       end
+
       protected :should_include_attr?
 
       def evaluate_attr_or_block(attribute_name, attr_or_block)
@@ -213,6 +214,7 @@ module JSONAPI
           object.send(attr_or_block)
         end
       end
+
       protected :evaluate_attr_or_block
     end
 
@@ -251,15 +253,15 @@ module JSONAPI
 
       # An internal-only structure that is passed through serializers as they are created.
       passthrough_options = {
-        context: options[:context],
-        serializer: options[:serializer],
-        include: includes,
-        base_url: options[:base_url]
+          context: options[:context],
+          serializer: options[:serializer],
+          include: includes,
+          base_url: options[:base_url]
       }
 
       if !options[:skip_collection_check] && options[:is_collection] && !objects.respond_to?(:each)
         raise JSONAPI::Serializer::AmbiguousCollectionError.new(
-          'Attempted to serialize a single object as a collection.')
+            'Attempted to serialize a single object as a collection.')
       end
 
       # Automatically include linkage data for any relation that is also included.
@@ -285,13 +287,13 @@ module JSONAPI
         # how to serialize null single resources vs. empty collections.
         if !options[:skip_collection_check] && objects.respond_to?(:each)
           raise JSONAPI::Serializer::AmbiguousCollectionError.new(
-            'Must provide `is_collection: true` to `serialize` when serializing collections.')
+              'Must provide `is_collection: true` to `serialize` when serializing collections.')
         end
         # Have single object.
         primary_data = serialize_primary(objects, passthrough_options)
       end
       result = {
-        'data' => primary_data,
+          'data' => primary_data,
       }
       result['meta'] = options[:meta] if options[:meta]
       result['errors'] = options[:errors] if options[:errors]
@@ -342,10 +344,10 @@ module JSONAPI
 
     def self.single_error(attribute, message)
       {
-        'source' => {
-          'pointer' => "/data/attributes/#{attribute.dasherize}"
-        },
-        'detail' => message
+          'source' => {
+              'pointer' => "/data/attributes/#{attribute.dasherize}"
+          },
+          'detail' => message
       }
     end
 
@@ -359,8 +361,8 @@ module JSONAPI
 
       serializer = serializer_class.new(object, options)
       data = {
-        'id' => serializer.id.to_s,
-        'type' => serializer.type.to_s,
+          'id' => serializer.id.to_s,
+          'type' => serializer.type.to_s,
       }
 
       # Merge in optional top-level members if they are non-nil.
@@ -376,7 +378,10 @@ module JSONAPI
       data['meta'] = meta if !meta.nil?
       data
     end
-    class << self; protected :serialize_primary; end
+
+    class << self;
+      protected :serialize_primary;
+    end
 
     def self.serialize_primary_multi(objects, options = {})
       # Spec: Primary data MUST be either:
@@ -386,7 +391,10 @@ module JSONAPI
 
       objects.map { |obj| serialize_primary(obj, options) }
     end
-    class << self; protected :serialize_primary_multi; end
+
+    class << self;
+      protected :serialize_primary_multi;
+    end
 
     # Recursively find object relationships and returns a tree of related objects.
     # Example return:
@@ -409,11 +417,11 @@ module JSONAPI
         is_collection = false
         is_valid_attr = false
         if serializer.has_one_relationships.has_key?(unformatted_attr_name)
-          is_valid_attr = true
+          is_valid_attr = serializer.has_one_relationships[unformatted_attr_name][:options][:allow_include]
           attr_data = serializer.has_one_relationships[unformatted_attr_name]
           object = serializer.has_one_relationship(unformatted_attr_name, attr_data)
         elsif serializer.has_many_relationships.has_key?(unformatted_attr_name)
-          is_valid_attr = true
+          is_valid_attr = serializer.has_many_relationships[unformatted_attr_name][:options][:allow_include]
           is_collection = true
           attr_data = serializer.has_many_relationships[unformatted_attr_name]
           object = serializer.has_many_relationship(unformatted_attr_name, attr_data)
@@ -421,14 +429,14 @@ module JSONAPI
 
         if !is_valid_attr
           raise JSONAPI::Serializer::InvalidIncludeError.new(
-            "'#{attribute_name}' is not a valid include.")
+              "'#{attribute_name}' is not a valid include.")
         end
 
         if attribute_name != serializer.format_name(attribute_name)
           expected_name = serializer.format_name(attribute_name)
 
           raise JSONAPI::Serializer::InvalidIncludeError.new(
-            "'#{attribute_name}' is not a valid include.  Did you mean '#{expected_name}' ?"
+              "'#{attribute_name}' is not a valid include.  Did you mean '#{expected_name}' ?"
           )
         end
 
@@ -483,7 +491,10 @@ module JSONAPI
       end
       nil
     end
-    class << self; protected :find_recursive_relationships; end
+
+    class << self;
+      protected :find_recursive_relationships;
+    end
 
     # Takes a list of relationship paths and returns a hash as deep as the given paths.
     # The _include: true is a sentinal value that specifies whether the parent level should
@@ -500,7 +511,10 @@ module JSONAPI
       paths.each { |path| merge_relationship_path(path, relationships) }
       relationships
     end
-    class << self; protected :parse_relationship_paths; end
+
+    class << self;
+      protected :parse_relationship_paths;
+    end
 
     def self.merge_relationship_path(path, data)
       parts = path.split('.', 2)
@@ -512,6 +526,9 @@ module JSONAPI
         merge_relationship_path(parts[1], data[current_level])
       end
     end
-    class << self; protected :merge_relationship_path; end
+
+    class << self;
+      protected :merge_relationship_path;
+    end
   end
 end

@@ -37,6 +37,16 @@ FactoryGirl.define do
     sequence(:name) {|n| "User ##{n}"}
   end
 
+  factory :hidden_permission, class: MyApp::HiddenPermission do
+    skip_create
+    sequence(:id) {|n| n }
+    sequence(:permission) {|n| "Permission ##{n}"}
+
+    trait :with_user do
+      association :user, factory: :user
+    end
+  end
+
   factory :underscore_test, class: MyApp::UnderscoreTest do
     skip_create
     sequence(:id) {|n| n }

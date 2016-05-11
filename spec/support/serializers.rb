@@ -37,6 +37,12 @@ module MyApp
     end
   end
 
+  class HiddenPermission
+    attr_accessor :id
+    attr_accessor :permission
+    attr_accessor :user
+  end
+
   class UnderscoreTest
     attr_accessor :id
 
@@ -219,6 +225,13 @@ module MyApp
   class PostSerializerWithInheritedProperties < PostSerializer
     # Add only :tag, inherit the rest.
     attribute :tag
+  end
+
+  class HiddenPermissionSerializer
+    include JSONAPI::Serializer
+    attribute :permission
+
+    has_one :user, allow_include: false
   end
 end
 

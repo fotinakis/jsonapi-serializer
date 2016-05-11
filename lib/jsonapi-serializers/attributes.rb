@@ -54,6 +54,7 @@ module JSONAPI
       def add_to_one_association(name, options = {}, &block)
         options[:include_links] = options.fetch(:include_links, true)
         options[:include_data] = options.fetch(:include_data, false)
+        options[:allow_include] = options.fetch(:allow_include, true)
         @to_one_associations ||= {}
         @to_one_associations[name] = {
           attr_or_block: block_given? ? block : name,
@@ -65,6 +66,7 @@ module JSONAPI
       def add_to_many_association(name, options = {}, &block)
         options[:include_links] = options.fetch(:include_links, true)
         options[:include_data] = options.fetch(:include_data, false)
+        options[:allow_include] = options.fetch(:allow_include, true)
         @to_many_associations ||= {}
         @to_many_associations[name] = {
           attr_or_block: block_given? ? block : name,
