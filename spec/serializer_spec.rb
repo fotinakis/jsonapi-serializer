@@ -132,12 +132,16 @@ describe JSONAPI::Serializer do
       it 'does not include id when it is nil' do
         post = create(:post)
         post.id = nil
-        primary_data = serialize_primary(post, {serializer: MyApp::SimplestPostSerializerWithoutSelfLink})
+        primary_data = serialize_primary(post, {serializer: MyApp::PostSerializerWithoutLinks})
         expect(primary_data).to eq({
           'type' => 'posts',
           'attributes' => {
             'title' => 'Title for Post 1',
             'long-content' => 'Body for Post 1',
+          },
+          'relationships' => {
+            'author' => {},
+            'long-comments' => {},
           },
         })
       end
