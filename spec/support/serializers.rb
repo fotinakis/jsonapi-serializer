@@ -92,6 +92,23 @@ module MyApp
     end
   end
 
+  class SimplestPostSerializerWithoutSelfLink
+    include JSONAPI::Serializer
+
+    attribute :title
+    attribute :long_content do
+      object.body
+    end
+
+    def type
+      :posts
+    end
+
+    def self_link
+      nil
+    end
+  end
+
   class PostSerializerWithMetadata
     include JSONAPI::Serializer
 
