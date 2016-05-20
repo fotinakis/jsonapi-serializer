@@ -366,7 +366,7 @@ module JSONAPI
       #  and represents a new resource to be created on the server."
       # http://jsonapi.org/format/#document-resource-objects
       # We'll assume that if the id is blank, it means the resource is to be created.
-      data['id'] = serializer.id.to_s if !serializer.id.empty?
+      data['id'] = serializer.id.to_s if serializer.id && !serializer.id.empty?
 
       # Merge in optional top-level members if they are non-nil.
       # http://jsonapi.org/format/#document-structure-resource-objects
