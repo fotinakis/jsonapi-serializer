@@ -239,25 +239,15 @@ module Api
         include JSONAPI::Serializer
 
         attribute :name
-        def meta
-          { serializer: 'Api::V1::MyApp::UserSerializer' }
-        end
       end
 
       class PostSerializer
         include JSONAPI::Serializer
 
         attribute :title
-        attribute :long_content do
-          object.body
-        end
 
         has_one :author
         has_many :long_comments
-
-        def meta
-          { serializer: 'Api::V1::MyApp::PostSerializer' }
-        end
       end
 
       class LongCommentSerializer
@@ -268,9 +258,6 @@ module Api
 
         # Circular-reference back to post.
         has_one :post
-        def meta
-          { serializer: 'Api::V1::MyApp::LongCommentSerializer' }
-        end
       end
     end
   end
