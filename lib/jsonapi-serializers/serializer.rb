@@ -268,9 +268,10 @@ module JSONAPI
       includes = options[:include]
       includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq if includes
 
-      fields = options[:fields].to_h.map do |type, whitelisted_fields|
+      fields = options[:fields] || {}
+      fields = Hash[fields.map do |type, whitelisted_fields|
         [type.to_s, whitelisted_fields.split(",").map(&:to_sym)]
-      end.to_h
+      end]
 
       # An internal-only structure that is passed through serializers as they are created.
       passthrough_options = {
