@@ -854,6 +854,224 @@ describe JSONAPI::Serializer do
         })
       end
     end
+
+    context "sparse fieldsets" do
+      it "allows to limit fields(attributes and relationships) for serialized resource" do
+        first_user = create(:user)
+        second_user = create(:user)
+        first_comment = create(:long_comment, user: first_user)
+        second_comment = create(:long_comment, user: second_user)
+        long_comments = [first_comment, second_comment]
+        post = create(:post, :with_author, long_comments: long_comments)
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title'})
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            }
+          }
+        })
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author'})
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            },
+            "relationships"=>{
+              "author"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/author",
+                  "related"=>"/posts/#{post.id}/author"
+                }
+              }
+            }
+          }
+        })
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author,long_comments'})
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            },
+            "relationships"=>{
+              "author"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/author",
+                  "related"=>"/posts/#{post.id}/author"
+                }
+              },
+              "long-comments"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/long-comments",
+                  "related"=>"/posts/1/long-comments"
+                }
+              }
+            }
+          }
+        })
+      end
+
+      it "allows to limit fields(attributes and relationships) for given type, even with included resources" do
+        first_user = create(:user)
+        second_user = create(:user)
+        first_comment = create(:long_comment, user: first_user)
+        second_comment = create(:long_comment, user: second_user)
+        long_comments = [first_comment, second_comment]
+        post = create(:post, :with_author, long_comments: long_comments)
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author', users: ''}, include: 'author')
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            },
+            "relationships"=>{
+              "author"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/author",
+                  "related"=>"/posts/#{post.id}/author"
+                },
+                "data"=>{"type"=>"users", "id"=>"#{post.author.id}"}
+              }
+            }
+          },
+          "included"=>[
+            {
+              "type"=>"users",
+              "id"=>post.author.id.to_s,
+              "links"=>{
+                "self"=>"/users/#{post.author.id}"
+              }
+            }
+          ]
+        })
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author'}, include: 'author')
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            },
+            "relationships"=>{
+              "author"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/author",
+                  "related"=>"/posts/#{post.id}/author"
+                },
+                "data"=>{"type"=>"users", "id"=>"#{post.author.id}"}
+              }
+            }
+          },
+          "included"=>[
+            {
+              "type"=>"users",
+              "id"=>post.author.id.to_s,
+              "attributes"=>{
+                "name"=>post.author.name
+              },
+              "links"=>{
+                "self"=>"/users/#{post.author.id}"
+              }
+            }
+          ]
+        })
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author', users: 'nonexistent'}, include: 'author')
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            },
+            "relationships"=>{
+              "author"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/author",
+                  "related"=>"/posts/#{post.id}/author"
+                },
+                "data"=>{"type"=>"users", "id"=>"#{post.author.id}"}
+              }
+            }
+          },
+          "included"=>[
+            {
+              "type"=>"users",
+              "id"=>post.author.id.to_s,
+              "links"=>{
+                "self"=>"/users/#{post.author.id}"
+              }
+            }
+          ]
+        })
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author', users: 'name'}, include: 'author')
+        expect(serialized_data).to eq ({
+          "data" => {
+            "type"=>"posts",
+            "id"=>post.id.to_s,
+            "attributes"=>{
+              "title"=>post.title,
+            },
+            "links"=>{
+              "self"=>"/posts/#{post.id}"
+            },
+            "relationships"=>{
+              "author"=>{
+                "links"=>{
+                  "self"=>"/posts/#{post.id}/relationships/author",
+                  "related"=>"/posts/#{post.id}/author"
+                },
+                "data"=>{"type"=>"users", "id"=>"#{post.author.id}"}
+              }
+            }
+          },
+          "included"=>[
+            {
+              "type"=>"users",
+              "id"=>post.author.id.to_s,
+              "links"=>{
+                "self"=>"/users/#{post.author.id}"
+              },
+              "attributes"=>{
+                "name"=>post.author.name
+              }
+            }
+          ]
+        })
+      end
+    end
   end
 
   describe 'serialize (class method)' do
