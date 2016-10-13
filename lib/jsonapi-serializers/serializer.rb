@@ -269,6 +269,11 @@ module JSONAPI
       includes = (includes.is_a?(String) ? includes.split(',') : includes).uniq if includes
 
       fields = options[:fields] || {}
+      # Transforms input so that the comma-separated fields are separate symbols in array
+      # and keys are stringified
+      # Example:
+      # {posts: 'title,author,long_comments'} => {'posts' => [:title, :author, :long_comments]}
+      #
       fields = Hash[fields.map do |type, whitelisted_fields|
         [type.to_s, whitelisted_fields.split(",").map(&:to_sym)]
       end]
