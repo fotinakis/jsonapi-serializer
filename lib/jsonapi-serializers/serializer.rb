@@ -273,9 +273,14 @@ module JSONAPI
       # and keys are stringified
       # Example:
       # {posts: 'title,author,long_comments'} => {'posts' => [:title, :author, :long_comments]}
+      # {posts: ['title', 'author', 'long_comments'} => {'posts' => [:title, :author, :long_comments]}
       #
       fields = Hash[fields.map do |type, whitelisted_fields|
-        [type.to_s, whitelisted_fields.split(",").map(&:to_sym)]
+        if whitelisted_fields.respond_to?(:to_ary)
+          [type.to_s, whitelisted_fields.map(&:to_sym)]
+        else
+          [type.to_s, whitelisted_fields.split(",").map(&:to_sym)]
+        end
       end]
 
       # An internal-only structure that is passed through serializers as they are created.

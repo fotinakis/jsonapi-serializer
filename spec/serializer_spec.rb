@@ -904,6 +904,28 @@ describe JSONAPI::Serializer do
         })
       end
 
+      it "allows also to pass specific fields as array instead of comma-separates values" do
+        first_user = create(:user)
+        second_user = create(:user)
+        first_comment = create(:long_comment, user: first_user)
+        second_comment = create(:long_comment, user: second_user)
+        long_comments = [first_comment, second_comment]
+        post = create(:post, :with_author, long_comments: long_comments)
+
+        serialized_data = JSONAPI::Serializer.serialize(post, fields: {posts: ['title', 'author']})
+        expect(serialized_data['data']['attributes']).to eq ({
+          'title' => post.title
+        })
+        expect(serialized_data['data']['relationships']).to eq ({
+          'author' => {
+            'links' => {
+              'self' => '/posts/1/relationships/author',
+              'related' => '/posts/1/author'
+            }
+          }
+        })
+      end
+
       it 'allows to limit fields(attributes and relationships) for included resources' do
         first_user = create(:user)
         second_user = create(:user)
