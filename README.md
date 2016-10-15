@@ -424,53 +424,54 @@ The JSON:API spec allows to return only [specific fields](http://jsonapi.org/for
 For example, if you wanted to return only `title` and `author` fields for `posts` type and `name` field for `users` type, you could write the following code:
 
 ```ruby
-JSONAPI::Serializer.serialize(post, fields: {posts: 'title,author', users: 'name'}, include: 'author')
+fields = {posts: 'title,author', users: 'name'}
+JSONAPI::Serializer.serialize(post, fields: fields, include: 'author')
 ```
 
 Returns:
 
 ```json
 {
-  "data" => {
-    "type" => "posts",
-    "id" => "1",
-    "attributes" => {
-      "title"=>"Title for Post 1"
+  "data": {
+    "type": "posts",
+    "id": "1",
+    "attributes": {
+      "title": "Title for Post 1"
     },
-   "links" => {
-      "self" => "/posts/1"
+   "links": {
+      "self": "/posts/1"
     },
-    "relationships" => {
-      "author" => {
-        "links" => {
-          "self" => "/posts/1/relationships/author",
-          "related" => "/posts/1/author"
+    "relationships": {
+      "author": {
+        "links": {
+          "self": "/posts/1/relationships/author",
+          "related": "/posts/1/author"
         },
-        "data" => { "type"=>"users", "id"=>"3" }
+        "data": { "type": "users", "id": "3" }
       }
     }
   },
- "included" => [
+ "included": [
     {
-      "type" => "users",
-      "id" => "3",
-      "attributes" => {
-        "name" => "User #3"
+      "type": "users",
+      "id": "3",
+      "attributes": {
+        "name": "User #3"
       },
-      "links" => {
-        "self" => "/users/3"
+      "links": {
+        "self": "/users/3"
       }
     }
   ]
 }
 ```
 
-You could also pass an array of specifi fields for given type instead of comma-separated values:
+You could also pass an array of specific fields for given type instead of comma-separated values:
 
 ``` ruby
-JSONAPI::Serializer.serialize(post, fields: {posts: ['title', 'author'], users: ['name']}, include: 'author')
+fields = {posts: ['title', 'author'], users: ['name']}
+JSONAPI::Serializer.serialize(post, fields: fields, include: 'author')
 ```
-
 
 ## Relationships
 
