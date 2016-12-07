@@ -24,6 +24,11 @@ module JSONAPI
       attr_accessor :to_one_associations
       attr_accessor :to_many_associations
 
+      RELATIONSHIP_DEFAULT_OPTIONS = {
+        include_links: true,
+        include_data: false,
+      }.freeze
+
       def attribute(name, options = {}, &block)
         add_attribute(name, options, &block)
       end
@@ -52,8 +57,7 @@ module JSONAPI
       private :add_attribute
 
       def add_to_one_association(name, options = {}, &block)
-        options[:include_links] = options.fetch(:include_links, true)
-        options[:include_data] = options.fetch(:include_data, false)
+        options = RELATIONSHIP_DEFAULT_OPTIONS.merge(options)
         @to_one_associations ||= {}
         @to_one_associations[name] = {
           attr_or_block: block_given? ? block : name,
@@ -63,8 +67,7 @@ module JSONAPI
       private :add_to_one_association
 
       def add_to_many_association(name, options = {}, &block)
-        options[:include_links] = options.fetch(:include_links, true)
-        options[:include_data] = options.fetch(:include_data, false)
+        options = RELATIONSHIP_DEFAULT_OPTIONS.merge(options)
         @to_many_associations ||= {}
         @to_many_associations[name] = {
           attr_or_block: block_given? ? block : name,
