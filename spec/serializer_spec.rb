@@ -434,6 +434,30 @@ describe JSONAPI::Serializer do
         }
       })
     end
+
+    it 'allows to set custom serializer for relationships' do
+      long_comments = create_list(:long_comment, 2)
+      post = create(:post, :with_author, long_comments: long_comments)
+      primary_data = serialize_primary(post, { serializer: MyApp::PostSerializerWithCustomRelationshipSerializer })
+      expect(primary_data).to eq({
+        'id' => '1',
+        'type' => 'posts',
+        'attributes' => {
+          'title' => 'Title for Post 1'
+        },
+        'links' => {
+          'self' => '/posts/1',
+        },
+        'relationships' => {
+          'author' => {
+            'links' => {
+              'self' => '/posts/1/relationships/author',
+              'related' => '/posts/1/author'
+            },
+          },
+        }
+      })
+    end
   end
 
   # The members data and errors MUST NOT coexist in the same document.

@@ -138,6 +138,20 @@ module MyApp
     end
   end
 
+  module MyAppOtherNamespace
+    class AuthorSerializer
+      include JSONAPI::Serializer
+    end
+  end
+
+  class PostSerializerWithCustomRelationshipSerializer
+    include JSONAPI::Serializer
+
+    attribute :title
+
+    has_one :author, serializer: MyAppOtherNamespace::AuthorSerializer
+  end
+
   class PostSerializerWithContext < PostSerializer
     attribute :body, if: :show_body?, unless: :hide_body?
 
