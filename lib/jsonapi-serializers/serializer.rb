@@ -113,7 +113,7 @@ module JSONAPI
           end
 
           if @_include_linkages.include?(formatted_attribute_name) || attr_data[:options][:include_data]
-            object = has_one_relationship(attribute_name, attr_data)
+            object = JSONAPI::Serializer.proxy_objects(has_one_relationship(attribute_name, attr_data))
             if object.nil?
               # Spec: Resource linkage MUST be represented as one of the following:
               # - null for empty to-one relationships.
@@ -149,7 +149,7 @@ module JSONAPI
           # http://jsonapi.org/format/#document-structure-resource-relationships
           if @_include_linkages.include?(formatted_attribute_name) || attr_data[:options][:include_data]
             data[formatted_attribute_name]['data'] = []
-            objects = has_many_relationship(attribute_name, attr_data) || []
+            objects = JSONAPI::Serializer.proxy_objects(has_many_relationship(attribute_name, attr_data) || [])
             objects.each do |obj|
               related_object_serializer = JSONAPI::Serializer.find_serializer(obj, @options)
               data[formatted_attribute_name]['data'] << {
@@ -245,7 +245,17 @@ module JSONAPI
       find_serializer_class(object, options).new(object, options)
     end
 
+    def self.proxy_objects(objects)
+      return nil unless objects
+      if objects.respond_to?(:map)
+        objects.map { |obj| DynamicProxyObject.new(obj) }
+      else
+        DynamicProxyObject.new(objects)
+      end
+    end
+
     def self.serialize(objects, options = {})
+      objects = proxy_objects(objects)
       # Normalize option strings to symbols.
       options[:is_collection] = options.delete('is_collection') || options[:is_collection] || false
       options[:include] = options.delete('include') || options[:include]
@@ -455,12 +465,12 @@ module JSONAPI
         if serializer.has_one_relationships.has_key?(unformatted_attr_name)
           is_valid_attr = true
           attr_data = serializer.has_one_relationships[unformatted_attr_name]
-          object = serializer.has_one_relationship(unformatted_attr_name, attr_data)
+          object = proxy_objects(serializer.has_one_relationship(unformatted_attr_name, attr_data))
         elsif serializer.has_many_relationships.has_key?(unformatted_attr_name)
           is_valid_attr = true
           is_collection = true
           attr_data = serializer.has_many_relationships[unformatted_attr_name]
-          object = serializer.has_many_relationship(unformatted_attr_name, attr_data)
+          object = proxy_objects(serializer.has_many_relationship(unformatted_attr_name, attr_data))
         end
 
         if !is_valid_attr
