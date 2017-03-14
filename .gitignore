@@ -13,3 +13,6 @@
 *.a
 mkmf.log
 .DS_Store
+.ruby-gemset
+.ruby-version
+.idea/

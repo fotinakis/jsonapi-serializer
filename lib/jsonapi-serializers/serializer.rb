@@ -245,7 +245,7 @@ module JSONAPI
 
     def self.find_serializer_class(object, options)
       class_name = find_serializer_class_name(object, options)
-      class_name.constantize
+      Module.const_get(class_name)
     end
 
     def self.find_serializer(object, options)

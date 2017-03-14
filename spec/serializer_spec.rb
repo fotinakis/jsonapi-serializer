@@ -1182,11 +1182,15 @@ describe JSONAPI::Serializer do
   end
 
   describe 'serializer with namespace option' do
-    it 'can serialize a simple object with namespace Api::V1' do
-      user = create(:user)
-      expect(JSONAPI::Serializer.serialize(user, {namespace: Api::V1})).to eq({
-        'data' => serialize_primary(user, {serializer: Api::V1::MyApp::UserSerializer}),
-      })
+    context 'with nested namespaces' do
+      subject { JSONAPI::Serializer.serialize(user, {namespace: 'Api::V1'}) }
+
+      let(:user) { create :user }
+      let(:expected) do
+        {'data' => serialize_primary(user, {serializer: Api::V1::MyApp::UserSerializer})}
+      end
+
+      it { is_expected.to eq expected }
     end
 
     it 'handles recursive loading of relationships with namespaces' do
