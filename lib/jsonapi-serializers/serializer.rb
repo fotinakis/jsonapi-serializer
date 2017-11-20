@@ -28,7 +28,7 @@ module JSONAPI
 
       attr_accessor :object
       attr_accessor :context
-      attr_accessor :base_url
+      attr_writer :base_url
 
       def initialize(object, options = {})
         @object = object
