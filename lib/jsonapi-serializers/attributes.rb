@@ -9,8 +9,10 @@ module JSONAPI
           [:attributes_map, :to_one_associations, :to_many_associations]
             .each{|k|
               key = "@#{k}"
-              attr = self.instance_variable_get(key)
-              target.instance_variable_set(key, attr.dup) if attr
+              if self.instance_variable_defined?(key)
+                attr = self.instance_variable_get(key)
+                target.instance_variable_set(key, attr.dup) if attr
+              end
             }
         end
       end
