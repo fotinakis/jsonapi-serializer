@@ -294,7 +294,8 @@ module JSONAPI
         namespace: options[:namespace],
         include: includes,
         fields: fields,
-        base_url: options[:base_url]
+        base_url: options[:base_url],
+        skip_included_check: options[:skip_included_check]
       }
 
       if !options[:skip_collection_check] && options[:is_collection] && !objects.respond_to?(:each)
@@ -470,7 +471,7 @@ module JSONAPI
           object = serializer.has_many_relationship(unformatted_attr_name, attr_data)
         end
 
-        if !is_valid_attr
+        if !options[:skip_included_check] && !is_valid_attr
           raise JSONAPI::Serializer::InvalidIncludeError.new(
             "'#{attribute_name}' is not a valid include.")
         end

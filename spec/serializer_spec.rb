@@ -1178,6 +1178,18 @@ describe JSONAPI::Serializer do
       expect do
         JSONAPI::Serializer.serialize(create(:underscore_test), include: 'tagged_posts');
       end.not_to raise_error
+
+      expect do
+        JSONAPI::Serializer.serialize([create(:post)], include: 'fake', is_collection: true);
+      end.to raise_error(JSONAPI::Serializer::InvalidIncludeError)
+    end
+
+    context 'when skip_included_check is true' do
+      it "doesn't raise an exception when join character is invalid" do
+        expect do
+          JSONAPI::Serializer.serialize([create(:post)], include: 'fake', is_collection: true, skip_included_check: true);
+        end.not_to raise_error(JSONAPI::Serializer::InvalidIncludeError)
+      end
     end
   end
 
