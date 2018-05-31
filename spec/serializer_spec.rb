@@ -832,7 +832,7 @@ describe JSONAPI::Serializer do
         ],
       }
       # Also test that it handles string include arguments.
-      includes = 'long-comments.post.author'
+      includes = 'long-comments,long-comments.post.author'
       actual_data = JSONAPI::Serializer.serialize(post, include: includes)
 
       # Multiple expectations for better diff output for debugging.
