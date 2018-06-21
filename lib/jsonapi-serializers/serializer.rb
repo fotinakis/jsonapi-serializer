@@ -127,7 +127,8 @@ module JSONAPI
               # http://jsonapi.org/format/#document-structure-resource-relationships
               data[formatted_attribute_name]['data'] = nil
             else
-              related_object_serializer = JSONAPI::Serializer.find_serializer(object, @options)
+              related_object_serializer = attr_data[:options][:serializer] ||
+                                            JSONAPI::Serializer.find_serializer(object, @options)
               data[formatted_attribute_name]['data'] = {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,
@@ -158,7 +159,8 @@ module JSONAPI
             data[formatted_attribute_name]['data'] = []
             objects = has_many_relationship(attribute_name, attr_data) || []
             objects.each do |obj|
-              related_object_serializer = JSONAPI::Serializer.find_serializer(obj, @options)
+              related_object_serializer = attr_data[:options][:serializer] ||
+                                            JSONAPI::Serializer.find_serializer(obj, @options)
               data[formatted_attribute_name]['data'] << {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,

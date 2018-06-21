@@ -29,6 +29,7 @@ This library is up-to-date with the finalized v1 JSON API spec.
   * [Compound documents and includes](#compound-documents-and-includes)
   * [Relationship path handling](#relationship-path-handling)
   * [Control links and data in relationships](#control-links-and-data-in-relationships)
+  * [Relationship serializer](#relationship-serializer)
 * [Rails example](#rails-example)
 * [Sinatra example](#sinatra-example)
 * [Unfinished business](#unfinished-business)
@@ -639,6 +640,16 @@ Notice that linkage data is now included for the `author` relationship:
          "id": "1"
        }
      }
+```
+
+### Relationship serializer
+
+By default the relationship serializer class will be looked up in the same namespace.
+To specify a custom serializer outside that namespace you can add a `serializer` option
+to the declaration
+
+```ruby
+has_one :author, serializer: MyOtherNamespace::Author
 ```
 
 ## Rails example
