@@ -168,10 +168,10 @@ And we can access this inside the anonymous functions for each property:
 class PostSerializer
   include JSONAPI::Serializer
 
-  attribute :title, if: -> { context.policy.read_attribute_title? }
+  attribute :title, if: -> { context.fetch(:policy).read_attribute_title? }
   attribute :content
 
-  has_many :comments, if: -> { context.policy.read_related_comments? }
+  has_many :comments, if: -> { context.fetch(:policy).read_related_comments? }
 end
 ```
 
