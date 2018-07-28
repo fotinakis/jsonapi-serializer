@@ -13,6 +13,7 @@ This library is up-to-date with the finalized v1 JSON API spec.
   * [Define a serializer](#define-a-serializer)
   * [Serialize an object](#serialize-an-object)
   * [Serialize a collection](#serialize-a-collection)
+  * [Context (and policies)](#context-and-policies)
   * [Null handling](#null-handling)
   * [Multiple attributes](#multiple-attributes)
   * [Custom attributes](#custom-attributes)
@@ -130,6 +131,121 @@ Returns:
 ```
 
 You must always pass `is_collection: true` when serializing a collection, see [Null handling](#null-handling).
+
+### Context (and policies)
+
+Sometimes you need to give a serializer instance some extra information that will possibly be different on each instantiation. A good example of this is policies (objects that determine if something can happen):
+
+``` ruby
+class PostPolicy
+  attr_reader :actor
+  attr_reader :record
+
+  def initialize(actor, record)
+    @actor = actor
+    @post = record
+  end
+
+  def read_attribute_title?
+    actor.admin? or not record.published?
+  end
+  
+  def read_related_comments?
+    actor.present?
+  end
+end
+```
+
+This policy will let us know if we can see the title of a post and what associated comments we can see. Now we just pass that policy as a context property:
+
+``` ruby
+JSONAPI::Serializer.serialize(post, context: {policy: PostPolicy.new(current_user, post)})
+```
+
+And we can access this inside the anonymous functions for each property:
+
+``` ruby
+class PostSerializer
+  include JSONAPI::Serializer
+
+  attribute :title, if: -> { context.policy.read_attribute_title? }
+  attribute :content
+
+  has_many :comments, if: -> { context.policy.read_related_comments? }
+end
+```
+
+This of course doesn't scale well so lets create some helpers:
+
+``` ruby
+class ApplicationSerializer
+  include JSONAPI::Serializer
+
+  private_class_method def self.policy_allows(name, type)
+    define_method("allow_#{type}_#{name}?")
+      if context.key?(:policy)
+        context.fetch(:policy).public_send("read_#{type}?", name)
+      else
+        raise MissingContextPolicyError
+      end
+    end
+  end
+
+  private_class_method def self.policy_allows_attribute?(name)
+    police(name, :attribute)
+  end
+
+  private_class_method def self.policy_allows_relation?(name)
+    police(name, :related)
+  end
+
+  private_class_method def self.policy_scoped(association)
+    if context.key?(:policy)
+      context.fetch(:policy).public_send("related_#{association}", if block_given? then yield end)
+    else
+      raise MissingContextPolicyError 
+    end
+  end
+end
+```
+
+And using those helpers:
+
+``` ruby
+class PostSerializer
+  include JSONAPI::Serializer
+
+  attribute :title, if: policy_allows_attribute?(:title)
+  attribute :content
+
+  has_many :comments, if: policy_allows_related(:comments), &policy_scoped(:comments)
+end
+```
+
+``` ruby
+class PostPolicy
+  attr_reader :actor
+  attr_reader :record
+
+  def initialize(actor, record)
+    @actor = actor
+    @post = record
+  end
+
+  def read_attribute_title?
+    actor.admin? or not record.published?
+  end
+  
+  def read_related_comments?
+    actor.present?
+  end
+
+  def related_comments(relation = nil)
+    CommentPolicy::Scope.new(requester, relation || record.comments).resolve
+  end
+end
+```
+
 
 ### Null handling
 
