@@ -181,31 +181,33 @@ This of course doesn't scale well so lets create some helpers:
 class ApplicationSerializer
   include JSONAPI::Serializer
 
-  private_class_method def self.policy_allows(name, type)
-    define_method("allow_#{type}_#{name}?")
-      if context.key?(:policy)
-        context.fetch(:policy).public_send("read_#{type}?", name)
-      else
-        raise MissingContextPolicyError
-      end
-    end
-  end
+   private_class_method def self.policy_allows(name, type)
+     define_method("allow_#{type}_#{name}?") do
+       if context.key?(:policy)
+         context.fetch(:policy).public_send("read_#{type}?", name)
+       else
+         raise MissingContextPolicyError
+       end
+     end
+   end
 
-  private_class_method def self.policy_allows_attribute?(name)
-    police(name, :attribute)
-  end
+   private_class_method def self.policy_allows_attribute?(name)
+     policy_allows(name, :attribute)
+   end
 
-  private_class_method def self.policy_allows_relation?(name)
-    police(name, :related)
-  end
+   private_class_method def self.policy_allows_relation?(name)
+     policy_allows(name, :related)
+   end
 
-  private_class_method def self.policy_scoped(association)
-    if context.key?(:policy)
-      context.fetch(:policy).public_send("related_#{association}", if block_given? then yield end)
-    else
-      raise MissingContextPolicyError 
-    end
-  end
+   private_class_method def self.policy_scoped(association)
+     ->(_) do
+       if context.key?(:policy)
+         context.fetch(:policy).public_send("related_#{association}", if block_given? then yield end)
+       else
+         raise MissingContextPolicyError
+       end
+     end
+   end
 end
 ```
 
@@ -215,10 +217,10 @@ And using those helpers:
 class PostSerializer
   include JSONAPI::Serializer
 
-  attribute :title, if: policy_allows_attribute?(:title)
+  attribute :title, if: policy_allows_attribute??(:title)
   attribute :content
 
-  has_many :comments, if: policy_allows_related(:comments), &policy_scoped(:comments)
+  has_many :comments, if: policy_allows_relation?(:comments), &policy_scoped(:comments)
 end
 ```
 
