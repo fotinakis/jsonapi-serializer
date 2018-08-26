@@ -645,7 +645,7 @@ describe JSONAPI::Serializer do
         'included' => [],
       })
     end
-    it 'handles include of to-many relationships with compound document' do
+    it 'handles include of to-many relationships with compound document with sparse fieldset' do
       long_comments = create_list(:long_comment, 2)
       post = create(:post, :with_author, long_comments: long_comments)
 
@@ -653,7 +653,7 @@ describe JSONAPI::Serializer do
         serializer: MyApp::PostSerializer,
         include_linkages: ['long-comments'],
       })
-      expect(JSONAPI::Serializer.serialize(post, include: ['long-comments'])).to eq({
+      expect(JSONAPI::Serializer.serialize(post, include: ['long-comments'], fields: {posts: ['title']})).to eq({
         'data' => expected_primary_data,
         'included' => [
           serialize_primary(long_comments.first, {serializer: MyApp::LongCommentSerializer}),
