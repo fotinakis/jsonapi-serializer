@@ -196,12 +196,10 @@ module JSONAPI
 
       def has_many_relationships
         return {} if self.class.to_many_associations.nil?
-        data = {}
-        self.class.to_many_associations.each do |attribute_name, attr_data|
-          next if !should_include_attr?(attribute_name, attr_data)
-          data[attribute_name] = attr_data
-        end
-        data
+
+        self.class.to_many_associations.select do |name, data|
+          should_include_attr?(name, data)
+        end.reduce(:merge)
       end
 
       def has_many_relationship(attribute_name, attr_data)
