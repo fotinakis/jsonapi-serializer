@@ -1,6 +1,7 @@
 require 'active_model/errors'
 require 'active_model/naming'
 require 'active_model/translation'
+require 'pry'
 
 describe JSONAPI::Serializer do
   def serialize_primary(object, options = {})
@@ -1281,6 +1282,36 @@ describe JSONAPI::Serializer do
       expect(actual_data['data']).to eq(expected_data['data'])
       expect(actual_data['included']).to eq(expected_data['included'])
       expect(actual_data).to eq(expected_data)
+    end
+  end
+
+  describe 'instrumentation' do
+    context 'serialize' do
+      let(:post) { create(:post, :with_author) }
+      let(:events) { [] }
+
+      before do
+        ActiveSupport::Notifications.subscribe('render.jsonapi_serializers.serialize') do |*args|
+          events << ActiveSupport::Notifications::Event.new(*args)
+        end
+      end
+
+      it 'sends an event for a single serialize call' do
+        JSONAPI::Serializer.serialize(post)
+
+        expect(events.length).to eq(1)
+        expect(events.first.name).to eq('render.jsonapi_serializers.serialize')
+        expect(events.first.children).to eq([])
+        expect(events.first.payload).to eq({serializer: "MyApp::Post"})
+      end
+
+      it 'sends events for includes' do
+        JSONAPI::Serializer.serialize(post, include: ['author'])
+
+        expect(events.length).to eq(2)
+        expect(events[0].payload).to eq({serializer: "MyApp::Post"})
+        expect(events[1].payload).to eq({serializer: "MyApp::User"})
+      end
     end
   end
 end

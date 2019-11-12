@@ -1,5 +1,6 @@
 require 'set'
 require 'active_support/inflector'
+require 'active_support/notifications'
 
 module JSONAPI
   module Serializer
@@ -394,38 +395,43 @@ module JSONAPI
     end
 
     def self.serialize_primary(object, options = {})
-      serializer_class = options[:serializer] || find_serializer_class(object, options)
+      ActiveSupport::Notifications.instrument(
+        'render.jsonapi_serializers.serialize',
+        serializer: object.class.name
+      ) do
+        serializer_class = options[:serializer] || find_serializer_class(object, options)
 
-      # Spec: Primary data MUST be either:
-      # - a single resource object or null, for requests that target single resources.
-      # http://jsonapi.org/format/#document-structure-top-level
-      return if object.nil?
+        # Spec: Primary data MUST be either:
+        # - a single resource object or null, for requests that target single resources.
+        # http://jsonapi.org/format/#document-structure-top-level
+        return if object.nil?
 
-      serializer = serializer_class.new(object, options)
-      data = {
-        'type' => serializer.type.to_s,
-      }
+        serializer = serializer_class.new(object, options)
+        data = {
+          'type' => serializer.type.to_s,
+        }
 
-      # "The id member is not required when the resource object originates at the client
-      #  and represents a new resource to be created on the server."
-      # http://jsonapi.org/format/#document-resource-objects
-      # We'll assume that if the id is blank, it means the resource is to be created.
-      data['id'] = serializer.id.to_s if serializer.id && !serializer.id.empty?
+        # "The id member is not required when the resource object originates at the client
+        #  and represents a new resource to be created on the server."
+        # http://jsonapi.org/format/#document-resource-objects
+        # We'll assume that if the id is blank, it means the resource is to be created.
+        data['id'] = serializer.id.to_s if serializer.id && !serializer.id.empty?
 
-      # Merge in optional top-level members if they are non-nil.
-      # http://jsonapi.org/format/#document-structure-resource-objects
-      # Call the methods once now to avoid calling them twice when evaluating the if's below.
-      attributes = serializer.attributes
-      links = serializer.links
-      relationships = serializer.relationships
-      jsonapi = serializer.jsonapi
-      meta = serializer.meta
-      data['attributes'] = attributes if !attributes.empty?
-      data['links'] = links if !links.empty?
-      data['relationships'] = relationships if !relationships.empty?
-      data['jsonapi'] = jsonapi if !jsonapi.nil?
-      data['meta'] = meta if !meta.nil?
-      data
+        # Merge in optional top-level members if they are non-nil.
+        # http://jsonapi.org/format/#document-structure-resource-objects
+        # Call the methods once now to avoid calling them twice when evaluating the if's below.
+        attributes = serializer.attributes
+        links = serializer.links
+        relationships = serializer.relationships
+        jsonapi = serializer.jsonapi
+        meta = serializer.meta
+        data['attributes'] = attributes if !attributes.empty?
+        data['links'] = links if !links.empty?
+        data['relationships'] = relationships if !relationships.empty?
+        data['jsonapi'] = jsonapi if !jsonapi.nil?
+        data['meta'] = meta if !meta.nil?
+        data
+      end
     end
     class << self; protected :serialize_primary; end
 
