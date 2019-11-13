@@ -654,6 +654,8 @@ The following notifications can be subscribed to:
 This is an example of how you might subscribe to all events that come from `jsonapi-serializers`.
 
 ```ruby
+require 'active_support/notifications'
+
 ActiveSupport::Notifications.subscribe(/^render\.jsonapi_serializers\..*/) do |*args|
   event = ActiveSupport::Notifications::Event.new(*args)
 
