@@ -1286,31 +1286,51 @@ describe JSONAPI::Serializer do
   end
 
   describe 'instrumentation' do
-    context 'serialize' do
-      let(:post) { create(:post, :with_author) }
-      let(:events) { [] }
+    let(:post) { create(:post, :with_author) }
+    let(:events) { [] }
 
-      before do
-        ActiveSupport::Notifications.subscribe('render.jsonapi_serializers.serialize') do |*args|
-          events << ActiveSupport::Notifications::Event.new(*args)
-        end
+    before do
+      ActiveSupport::Notifications.subscribe(notification_name) do |*args|
+        events << ActiveSupport::Notifications::Event.new(*args)
       end
+    end
+
+    context 'serialize_primary' do
+      let(:notification_name) { 'render.jsonapi_serializers.serialize_primary' }
 
       it 'sends an event for a single serialize call' do
         JSONAPI::Serializer.serialize(post)
 
         expect(events.length).to eq(1)
-        expect(events.first.name).to eq('render.jsonapi_serializers.serialize')
-        expect(events.first.children).to eq([])
-        expect(events.first.payload).to eq({serializer: "MyApp::Post"})
+        expect(events[0].name).to eq(notification_name)
+        expect(events[0].payload).to eq({class_name: "MyApp::Post"})
       end
 
       it 'sends events for includes' do
         JSONAPI::Serializer.serialize(post, include: ['author'])
 
         expect(events.length).to eq(2)
-        expect(events[0].payload).to eq({serializer: "MyApp::Post"})
-        expect(events[1].payload).to eq({serializer: "MyApp::User"})
+        expect(events[0].payload).to eq({class_name: "MyApp::Post"})
+        expect(events[1].payload).to eq({class_name: "MyApp::User"})
+      end
+    end
+
+    context 'find_recursive_relationships' do
+      let(:notification_name) { 'render.jsonapi_serializers.find_recursive_relationships' }
+
+      it 'does not send event when there are no includes' do
+        JSONAPI::Serializer.serialize(post)
+        expect(events.length).to eq(0)
+      end
+
+      it 'sends events for includes' do
+        JSONAPI::Serializer.serialize(post, include: ['author'])
+
+        expect(events.length).to eq(2)
+        expect(events[0].name).to eq(notification_name)
+        expect(events[0].payload).to eq({class_name: "MyApp::User"})
+        expect(events[1].name).to eq(notification_name)
+        expect(events[1].payload).to eq({class_name: "MyApp::Post"})
       end
     end
   end
