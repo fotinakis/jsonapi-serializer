@@ -1295,7 +1295,7 @@ describe JSONAPI::Serializer do
       end
     end
 
-    context 'serialize_primary' do
+    describe 'serialize_primary' do
       let(:notification_name) { 'render.jsonapi_serializers.serialize_primary' }
 
       it 'sends an event for a single serialize call' do
@@ -1315,7 +1315,7 @@ describe JSONAPI::Serializer do
       end
     end
 
-    context 'find_recursive_relationships' do
+    describe 'find_recursive_relationships' do
       let(:notification_name) { 'render.jsonapi_serializers.find_recursive_relationships' }
 
       it 'does not send event when there are no includes' do
