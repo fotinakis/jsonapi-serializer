@@ -77,6 +77,24 @@ module MyApp
     has_one :post
   end
 
+  class PostSerializerWithRelatedMetadata
+    include JSONAPI::Serializer
+
+    attribute :title
+    attribute :long_content do
+      object.body
+    end
+
+    has_one :author
+    has_many :long_comments
+
+    def relationship_meta(attribute_name)
+      {
+        'total' => '10'
+      }
+    end
+  end
+
   # More customized, one-off serializers to test particular behaviors:
 
   class SimplestPostSerializer
@@ -164,7 +182,6 @@ module MyApp
       context.fetch(:show_comments_user, true)
     end
   end
-
 
   class PostSerializerWithoutLinks
     include JSONAPI::Serializer

@@ -253,6 +253,10 @@ def relationship_related_link(attribute_name)
   "#{self_link}/#{format_name(attribute_name)}"
 end
 ```
+```ruby
+def relationship_meta(attribute_name)
+end
+```
 
 If you override `self_link`, `relationship_self_link`, or `relationship_related_link` to return `nil`, the link will be excluded from the serialized object.
 

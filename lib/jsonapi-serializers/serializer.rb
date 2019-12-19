@@ -98,6 +98,9 @@ module JSONAPI
         "#{self_link}/#{format_name(attribute_name)}"
       end
 
+      def relationship_meta(attribute_name)
+      end
+
       def links
         data = {}
         data['self'] = self_link if self_link
@@ -135,6 +138,9 @@ module JSONAPI
               }
             end
           end
+
+          meta = relationship_meta(attribute_name)
+          data[formatted_attribute_name]['meta'] = meta if !meta.nil?
         end
 
         # Merge in data for has_many relationships.
@@ -166,6 +172,9 @@ module JSONAPI
               }
             end
           end
+
+          meta = relationship_meta(attribute_name)
+          data[formatted_attribute_name]['meta'] = meta if !meta.nil?
         end
         data
       end

@@ -584,6 +584,43 @@ describe JSONAPI::Serializer do
       })
     end
 
+    it 'can include meta data for relationships' do
+      post = create(:post)
+      primary_data = serialize_primary(post, {serializer: MyApp::PostSerializerWithRelatedMetadata})
+      expect(primary_data).to eq({
+        'id' => '1',
+        'type' => 'posts',
+        'attributes' => {
+          'title' => 'Title for Post 1',
+          'long-content' => 'Body for Post 1',
+        },
+        'links' => {
+          'self' => '/posts/1',
+        },
+        'relationships' => {
+          # Both to-one and to-many metadata are present, but user should manage as needed:
+          'author' => {
+            'links' => {
+              'self' => '/posts/1/relationships/author',
+              'related' => '/posts/1/author',
+            },
+            'meta' => {
+              'total' => '10'
+            },
+          },
+          'long-comments' => {
+            'links' => {
+              'self' => '/posts/1/relationships/long-comments',
+              'related' => '/posts/1/long-comments',
+            },
+            'meta' => {
+              'total' => '10'
+            },
+          },
+        },
+      })
+    end
+
     it 'can serialize a single object with an `each` method by passing skip_collection_check: true' do
       post = create(:post)
       post.define_singleton_method(:each) do
