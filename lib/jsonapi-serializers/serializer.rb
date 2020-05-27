@@ -128,7 +128,7 @@ module JSONAPI
               # http://jsonapi.org/format/#document-structure-resource-relationships
               data[formatted_attribute_name]['data'] = nil
             else
-              related_object_serializer = JSONAPI::Serializer.find_serializer(object, @options)
+              related_object_serializer = JSONAPI::Serializer.find_serializer(object, @options.merge(attr_data[:options]))
               data[formatted_attribute_name]['data'] = {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,
@@ -159,7 +159,7 @@ module JSONAPI
             data[formatted_attribute_name]['data'] = []
             objects = has_many_relationship(attribute_name, attr_data) || []
             objects.each do |obj|
-              related_object_serializer = JSONAPI::Serializer.find_serializer(obj, @options)
+              related_object_serializer = JSONAPI::Serializer.find_serializer(obj, @options.merge(attr_data[:options]))
               data[formatted_attribute_name]['data'] << {
                 'type' => related_object_serializer.type.to_s,
                 'id' => related_object_serializer.id.to_s,
@@ -235,7 +235,9 @@ module JSONAPI
     end
 
     def self.find_serializer_class_name(object, options)
-      if options[:namespace]
+      if options[:serializer]
+        options[:serializer].name
+      elsif options[:namespace]
         "#{options[:namespace]}::#{object.class.name}Serializer"
       else
         "#{object.class.name}Serializer"
